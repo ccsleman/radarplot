@@ -928,8 +928,8 @@
                 ctx.fillText('TRIANGLE DES VITESSES', centerX, height - 120);
 
                 if (targetSpeed > 0.1) {
-                    const lengthSquared = dx_nm * dx_nm + dy_nm * dy_nm;
-                    const t = ((centerX - pos1.x) * dx_nm + (centerY - pos1.y) * dy_nm) / lengthSquared;
+                    const distanceSquared = dx_nm * dx_nm + dy_nm * dy_nm;
+                    const t = ((centerX - pos1.x) * dx_nm + (centerY - pos1.y) * dy_nm) / distanceSquared;
 
                     const cpa_canvas = {
                         x: pos1.x + t * dx_nm,
