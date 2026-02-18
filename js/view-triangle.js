@@ -34,7 +34,7 @@ function drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation
     ctx.fillStyle = COLORS.ownShip;
     ctx.font = 'bold 11px Share Tech Mono';
     ctx.textAlign = 'left';
-    ctx.fillText(`${model.ownShip.speed.toFixed(1)} nds`, endX + 8, endY);
+    ctx.fillText(`${model.ownShip.speed.toFixed(1)} kts`, endX + 8, endY);
 
     return { x: endX, y: endY };
 }
@@ -57,7 +57,7 @@ function drawRelativeVector(ctx, fromX, fromY, results, pixelsPerKnot, rotation)
     ctx.textAlign = 'left';
     const midX = (fromX + endX) / 2;
     const midY = (fromY + endY) / 2;
-    ctx.fillText(`Relatif ${results.relative.speed.toFixed(1)} nds`, midX + 5, midY - 5);
+    ctx.fillText(`Relatif ${results.relative.speed.toFixed(1)} kts`, midX + 5, midY - 5);
 
     return { x: endX, y: endY };
 }
@@ -76,7 +76,7 @@ function drawTrueTargetVector(ctx, centerX, centerY, targetEnd, results) {
     ctx.fillStyle = COLORS.trueVector;
     ctx.font = 'bold 11px Share Tech Mono';
     ctx.textAlign = 'right';
-    ctx.fillText(`Vrai ${results.trueTarget.speed.toFixed(1)} nds`, targetEnd.x - 8, targetEnd.y);
+    ctx.fillText(`Vrai ${results.trueTarget.speed.toFixed(1)} kts`, targetEnd.x - 8, targetEnd.y);
 }
 
 function drawOriginDot(ctx, centerX, centerY) {
@@ -110,7 +110,7 @@ function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidance
     ctx.fillStyle = COLORS.ownShip;
     ctx.font = 'bold 11px Share Tech Mono';
     ctx.textAlign = 'left';
-    ctx.fillText(`${model.avoidance.speed.toFixed(1)} nds`, newOwnEndX + 8, newOwnEndY);
+    ctx.fillText(`${model.avoidance.speed.toFixed(1)} kts`, newOwnEndX + 8, newOwnEndY);
 
     ctx.strokeStyle = COLORS.relative;
     ctx.lineWidth = 3;
@@ -127,7 +127,7 @@ function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidance
     ctx.textAlign = 'left';
     const midX = (newOwnEndX + targetEnd.x) / 2;
     const midY = (newOwnEndY + targetEnd.y) / 2;
-    ctx.fillText(`Relatif' ${avoidanceResults.relative.speed.toFixed(1)} nds`, midX + 5, midY - 5);
+    ctx.fillText(`Relatif' ${avoidanceResults.relative.speed.toFixed(1)} kts`, midX + 5, midY - 5);
 
     ctx.globalAlpha = 1.0;
 }
@@ -143,7 +143,7 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
     ctx.fillStyle = COLORS.background;
     ctx.fillRect(0, 0, width, height);
 
-    const ringLabel = (i) => `${i * BASE_KTS_PER_RING} nds`;
+    const ringLabel = (i) => `${i * BASE_KTS_PER_RING} kts`;
     drawPolarGrid(ctx, centerX, centerY, maxRadius, RING_COUNT, ringLabel);
 
     ctx.fillStyle = COLORS.triangleTitle;
