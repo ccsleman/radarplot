@@ -87,15 +87,16 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     const b = 2 * (pos2.x * dx + pos2.y * dy);
     const c = pos2.x * pos2.x + pos2.y * pos2.y - avoidanceDistance * avoidanceDistance;
     const disc = b * b - 4 * a * c;
-    if (disc < 0) return null;
 
-    const sqrtDisc = Math.sqrt(disc);
-    const s1 = (-b - sqrtDisc) / (2 * a);
-    const s2 = (-b + sqrtDisc) / (2 * a);
-    let s;
-    if (s1 >= -1e-9) s = Math.max(0, s1);
-    else if (s2 >= -1e-9) s = Math.max(0, s2);
-    else return null;
+    let s = 0;
+    if (disc >= 0) {
+        const sqrtDisc = Math.sqrt(disc);
+        const s1 = (-b - sqrtDisc) / (2 * a);
+        const s2 = (-b + sqrtDisc) / (2 * a);
+        if (s1 >= -1e-9) s = Math.max(0, s1);
+        else if (s2 >= -1e-9) s = Math.max(0, s2);
+    }
+
 
     const maneuverPoint = {
         x: pos2.x + s * dx,

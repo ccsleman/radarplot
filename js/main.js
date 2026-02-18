@@ -25,6 +25,14 @@ function render() {
             model.avoidance.speed,
             clampedDist
         );
+        if (!avoidanceResults) {
+            avoidanceResults = computeAvoidanceResults(
+                results,
+                model.avoidance.course,
+                model.avoidance.speed,
+                model.currentTarget.distance2
+            );
+        }
     }
 
     if (!model.triangleScaleManual && results) {
