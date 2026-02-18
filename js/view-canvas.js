@@ -10,11 +10,17 @@ function nmToCanvas(nmX, nmY, centerX, centerY, scale, rotationDeg) {
     };
 }
 
-function drawOwnShip(ctx, centerX, centerY) {
-    ctx.fillStyle = COLORS.ownShip;
+function drawHeadingLine(ctx, centerX, centerY, maxRadius, rotation, headingDeg) {
+    const rad = (headingDeg - rotation) * Math.PI / 180;
+    const endX = centerX + maxRadius * Math.sin(rad);
+    const endY = centerY - maxRadius * Math.cos(rad);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
 }
 
 function drawTargetPositions(ctx, centerX, centerY, scale, rotation, results) {
@@ -52,7 +58,7 @@ function drawCPA(ctx, centerX, centerY, scale, rotation, results) {
 
     ctx.fillStyle = COLORS.cpa;
     ctx.beginPath();
-    ctx.arc(cpa.x, cpa.y, 8, 0, Math.PI * 2);
+    ctx.arc(cpa.x, cpa.y, 5, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = COLORS.cpa;
@@ -168,7 +174,7 @@ export function renderCanvas(canvas, model, results, avoidanceResults) {
 
     const radarRingLabel = (i) => `${i * NM_PER_RING} NM`;
     drawPolarGrid(ctx, centerX, centerY, maxRadius, RADAR_RING_COUNT, radarRingLabel);
-    drawOwnShip(ctx, centerX, centerY);
+    drawHeadingLine(ctx, centerX, centerY, maxRadius, rotation, model.ownShip.course);
 
     if (results) {
         drawTargetPositions(ctx, centerX, centerY, scale, rotation, results);
