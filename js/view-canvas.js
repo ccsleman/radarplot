@@ -181,7 +181,7 @@ export function renderCanvas(canvas, model, results, avoidanceResults) {
         drawPredictionLine(ctx, centerX, centerY, scale, rotation, results);
         drawCPA(ctx, centerX, centerY, scale, rotation, results);
 
-        if (avoidanceResults) {
+        if (avoidanceResults && avoidanceResults.maneuverNeeded !== false) {
             drawAvoidancePrediction(ctx, centerX, centerY, scale, rotation, avoidanceResults);
             drawAvoidanceCPA(ctx, centerX, centerY, scale, rotation, avoidanceResults);
         }

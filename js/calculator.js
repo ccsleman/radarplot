@@ -87,6 +87,7 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     const b = 2 * (pos2.x * dx + pos2.y * dy);
     const c = pos2.x * pos2.x + pos2.y * pos2.y - avoidanceDistance * avoidanceDistance;
     const disc = b * b - 4 * a * c;
+    const maneuverNeeded = disc >= 0;
 
     let s = 0;
     if (disc >= 0) {
@@ -124,6 +125,7 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     const totalTcpaHours = timeToManeuverHours + clampedT;
 
     return {
+        maneuverNeeded,
         maneuverPoint,
         relative: {
             course: newRelPolar.bearing,

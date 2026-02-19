@@ -70,6 +70,14 @@ function renderAvoidanceResults(avoidance, avoidanceResults) {
         return;
     }
 
+    if (avoidanceResults.maneuverNeeded === false) {
+        setResult('avoidRelCourse', 'CPA suffisant');
+        setResult('avoidRelSpeed', 'N/A');
+        setResult('avoidCpaDistance', 'N/A');
+        setResult('avoidTcpaTime', 'N/A');
+        return;
+    }
+
     setResult('avoidRelCourse', avoidance.course.toFixed(1) + '\u00B0');
     setResult('avoidRelSpeed', avoidance.speed.toFixed(1) + ' kts');
 
