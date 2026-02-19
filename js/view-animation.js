@@ -556,7 +556,10 @@ function drawFrame(wallNow) {
                 radarHeading = lerpAngle(ownCourse, state.avoidCourse, elapsed / duration);
             }
 
-            const avoidSpeedNow = t <= state.tManeuver ? state.ownSpeed : state.avoidSpeed;
+            let avoidSpeedNow = t <= state.tManeuver ? state.ownSpeed : state.avoidSpeed;
+            if (elapsed > 0 && elapsed < duration) {
+                avoidSpeedNow = state.ownSpeed + (state.avoidSpeed - state.ownSpeed) * (elapsed / duration);
+            }
 
             drawMiniRadar(ctx, canvasW - margin, margin, radarR,
                 avoidBD.bearing, avoidBD.distance, radarHeading,
