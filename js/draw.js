@@ -48,9 +48,10 @@ export function drawArrowHead(ctx, fromX, fromY, toX, toY, color, size) {
     ctx.fill();
 }
 
-export function setupCanvas(canvas, cssHeight) {
+export function setupCanvas(canvas) {
     const container = canvas.parentElement;
     const cssWidth = container.getBoundingClientRect().width - 32;
+    const cssHeight = cssWidth;
     const dpr = window.devicePixelRatio || 1;
 
     canvas.width = Math.round(cssWidth * dpr);

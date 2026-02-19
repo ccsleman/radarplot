@@ -62,13 +62,13 @@ function renderResults(results) {
 }
 
 function renderAvoidanceResults(avoidance, avoidanceResults) {
-    const sections = document.querySelectorAll('.avoidance-divider, .avoidance-result');
-    if (!sections.length) return;
-
-    const show = avoidance.active && avoidanceResults;
-    for (const el of sections) el.style.display = show ? '' : 'none';
-
-    if (!show) return;
+    if (!avoidance.active || !avoidanceResults) {
+        setResult('avoidRelCourse', '---');
+        setResult('avoidRelSpeed', '---');
+        setResult('avoidCpaDistance', '---');
+        setResult('avoidTcpaTime', '---');
+        return;
+    }
 
     setResult('avoidRelCourse', avoidance.course.toFixed(1) + '\u00B0');
     setResult('avoidRelSpeed', avoidance.speed.toFixed(1) + ' kts');

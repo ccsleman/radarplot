@@ -157,7 +157,7 @@ const RADAR_RING_COUNT = 4;
 const NM_PER_RING = 5;
 
 export function resizeCanvas(canvas) {
-    canvas._logical = setupCanvas(canvas, 600);
+    canvas._logical = setupCanvas(canvas);
 }
 
 export function renderCanvas(canvas, model, results, avoidanceResults) {

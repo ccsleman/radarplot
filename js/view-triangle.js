@@ -87,7 +87,7 @@ function drawOriginDot(ctx, centerX, centerY) {
 }
 
 export function resizeTriangleCanvas(canvas) {
-    canvas._logical = setupCanvas(canvas, 600);
+    canvas._logical = setupCanvas(canvas);
 }
 
 function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidanceResults, pixelsPerKnot, rotation) {
