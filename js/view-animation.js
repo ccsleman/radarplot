@@ -729,7 +729,7 @@ export function updateAnimation(canvas, model, results, avoidanceResults) {
     const bboxH = bbox.maxY - bbox.minY;
     const scaleX = logical.width / bboxW;
     const scaleY = logical.height / bboxH;
-    const pixelsPerNM = Math.min(scaleX, scaleY);
+    const pixelsPerNM = Math.min(scaleX, scaleY) / 1.3;
 
     state = {
         canvas,
