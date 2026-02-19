@@ -556,9 +556,11 @@ function drawFrame(wallNow) {
                 radarHeading = lerpAngle(ownCourse, state.avoidCourse, elapsed / duration);
             }
 
+            const avoidSpeedNow = t <= state.tManeuver ? state.ownSpeed : state.avoidSpeed;
+
             drawMiniRadar(ctx, canvasW - margin, margin, radarR,
                 avoidBD.bearing, avoidBD.distance, radarHeading,
-                state.avoidSpeed, state.orientationMode,
+                avoidSpeedNow, state.orientationMode,
                 avoidAlpha, '\u00C9vitement');
         }
     }
