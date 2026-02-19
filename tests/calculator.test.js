@@ -8,7 +8,8 @@ import {
     closestPointOfApproach,
     tcpaFromObservation,
     trueMotion,
-    computeResults
+    computeResults,
+    computeAvoidanceResults
 } from '../js/calculator.js';
 
 const EPSILON = 1e-9;
@@ -254,5 +255,47 @@ describe('computeResults', () => {
         const expectedY = pos2.y + (results.relative.dy / deltaTime);
         assertCloseLoose(results.prediction.x, expectedX, 1e-6, 'prediction.x');
         assertCloseLoose(results.prediction.y, expectedY, 1e-6, 'prediction.y');
+    });
+});
+
+describe('computeAvoidanceResults timeToManeuverHours', () => {
+    const target = { bearing1: 45, distance1: 8, time1: '12:00', bearing2: 50, distance2: 6, time2: '12:12' };
+    const ownShip = { course: 0, speed: 12 };
+
+    it('returns timeToManeuverHours as a non-negative number', () => {
+        const results = computeResults(target, ownShip);
+        const avoid = computeAvoidanceResults(results, 90, 10, 3);
+        assert.ok(avoid !== null);
+        assert.ok(typeof avoid.timeToManeuverHours === 'number');
+        assert.ok(avoid.timeToManeuverHours >= 0, `expected >= 0, got ${avoid.timeToManeuverHours}`);
+    });
+
+    it('is less than total TCPA', () => {
+        const results = computeResults(target, ownShip);
+        const avoid = computeAvoidanceResults(results, 90, 10, 3);
+        assert.ok(avoid !== null);
+        const totalTcpaHours = avoid.cpa.tcpaMinutes / 60;
+        assert.ok(avoid.timeToManeuverHours <= totalTcpaHours,
+            `maneuver time (${avoid.timeToManeuverHours}) should be <= total TCPA (${totalTcpaHours})`);
+    });
+
+    it('is consistent with maneuverPoint and relative velocity', () => {
+        const results = computeResults(target, ownShip);
+        const avoid = computeAvoidanceResults(results, 90, 10, 3);
+        assert.ok(avoid !== null);
+
+        const dx = avoid.maneuverPoint.x - results.pos2.x;
+        const dy = avoid.maneuverPoint.y - results.pos2.y;
+        const distFromP2 = Math.sqrt(dx * dx + dy * dy);
+        const relSpeed = results.relative.speed;
+        const p1p2Dist = Math.sqrt(
+            results.relative.dx * results.relative.dx +
+            results.relative.dy * results.relative.dy
+        );
+        const deltaTime = p1p2Dist / relSpeed;
+        const expectedTime = (distFromP2 / p1p2Dist) * deltaTime;
+
+        assertCloseLoose(avoid.timeToManeuverHours, expectedTime, 0.01,
+            `timeToManeuverHours (${avoid.timeToManeuverHours}) should match geometric derivation (${expectedTime})`);
     });
 });

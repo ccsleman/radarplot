@@ -128,6 +128,7 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     return {
         maneuverNeeded,
         maneuverPoint,
+        timeToManeuverHours,
         relative: {
             course: newRelPolar.bearing,
             speed: newRelPolar.distance,

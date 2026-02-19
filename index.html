@@ -192,6 +192,26 @@
                 </div>
             </div>
         </div>
+
+        <div class="animation-panel">
+            <h2 class="panel-title">Animation</h2>
+            <canvas id="animationCanvas"></canvas>
+            <div class="anim-controls">
+                <button class="anim-play-btn" id="animPlayBtn">&#9654;</button>
+                <input type="range" id="animSlider" min="0" max="1000" value="0" step="1">
+                <span class="anim-time-label" id="animTimeLabel">+00:00</span>
+            </div>
+            <div class="legend anim-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff41;"></div>
+                    <span>Propre Navire</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff3b3b;"></div>
+                    <span>Cible</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>

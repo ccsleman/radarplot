@@ -5,13 +5,23 @@ import { renderForm } from './view-form.js';
 import { renderCanvas, resizeCanvas } from './view-canvas.js';
 import { renderTriangle, resizeTriangleCanvas, bestFitScaleIndex, scaleLabel } from './view-triangle.js';
 import { bearingToCanvasOffset as bearingToCanvasOffsetImport } from './draw.js';
+import { resizeAnimationCanvas, updateAnimation, setAnimationControls, togglePlayback, seekTo } from './view-animation.js';
 
 const model = createModel();
 const radarCanvas = document.getElementById('radarCanvas');
 const triangleCanvas = document.getElementById('triangleCanvas');
+const animationCanvas = document.getElementById('animationCanvas');
 const scaleLabelEl = document.getElementById('scaleLabel');
 const avoidanceOverlay = document.getElementById('avoidanceOverlay');
 const avoidanceDistInput = document.getElementById('avoidanceDistance');
+
+const animPlayBtn = document.getElementById('animPlayBtn');
+const animSlider = document.getElementById('animSlider');
+const animTimeLabel = document.getElementById('animTimeLabel');
+
+setAnimationControls({ playBtn: animPlayBtn, slider: animSlider, timeLabel: animTimeLabel });
+animPlayBtn.addEventListener('click', togglePlayback);
+animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
 
 function render() {
     const results = computeResults(model.currentTarget, model.ownShip);
@@ -43,6 +53,7 @@ function render() {
     renderForm(model, results, avoidanceResults);
     renderCanvas(radarCanvas, model, results, avoidanceResults);
     renderTriangle(triangleCanvas, model, results, avoidanceResults);
+    updateAnimation(animationCanvas, model, results, avoidanceResults);
 
     if (model.triangleScaleIndex !== null) {
         scaleLabelEl.textContent = scaleLabel(model.triangleScaleIndex);
@@ -193,6 +204,7 @@ window.addEventListener('touchend', onPointerUp);
 function handleResize() {
     resizeCanvas(radarCanvas);
     resizeTriangleCanvas(triangleCanvas);
+    resizeAnimationCanvas(animationCanvas);
     render();
 }
 
@@ -201,5 +213,6 @@ window.addEventListener('resize', handleResize);
 window.addEventListener('load', () => {
     resizeCanvas(radarCanvas);
     resizeTriangleCanvas(triangleCanvas);
+    resizeAnimationCanvas(animationCanvas);
     model.notify();
 });
