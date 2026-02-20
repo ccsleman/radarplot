@@ -659,7 +659,7 @@ button:active {
     font-size: 0.9rem;
     color: var(--radar-green);
     white-space: nowrap;
-    min-width: 4.5rem;
+    width: 10ch;
     text-align: right;
 }
 
