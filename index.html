@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RADAR Maritime - Calcul de Trajectoires</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RADAR PLOTTING</h1>
+            <div class="subtitle">CCS Groupe Lémanique</div>
+        </header>
+
+        <div class="main-grid">
+            <div class="panel panel-own-ship">
+                <h2 class="panel-title">Propre Navire</h2>
+                <div style="margin-bottom: 1.5rem;">
+                    <label>Mode d'Orientation</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                        <button class="orientation-btn active" id="northUpBtn">
+                            <span style="font-size: 1.2rem;">⬆</span> North-Up
+                        </button>
+                        <button class="orientation-btn" id="headUpBtn">
+                            <span style="font-size: 1.2rem;">🧭</span> Head-Up
+                        </button>
+                    </div>
+                </div>
+                <div class="input-row">
+                    <div>
+                        <label>Cap (°)</label>
+                        <input type="number" id="ownCourse" value="0" min="0" max="359" step="1">
+                    </div>
+                    <div>
+                        <label>Vitesse (nœuds)</label>
+                        <input type="number" id="ownSpeed" value="12" min="0" max="50" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel panel-targets">
+                <h2 class="panel-title">Cibles</h2>
+                <div class="target-selector">
+                    <button class="target-btn active"><span class="target-btn-label">Cible </span>1</button>
+                    <button class="target-btn"><span class="target-btn-label">Cible </span>2</button>
+                    <button class="target-btn"><span class="target-btn-label">Cible </span>3</button>
+                    <button class="target-btn"><span class="target-btn-label">Cible </span>4</button>
+                    <button class="target-btn"><span class="target-btn-label">Cible </span>5</button>
+                </div>
+
+                <div class="input-group">
+                    <h3 style="color: var(--grid-blue); margin-bottom: 1rem; font-family: 'Orbitron', sans-serif;">Position 1</h3>
+                    <div class="input-row">
+                        <div>
+                            <label id="bearing1Label">Relèvement (°)</label>
+                            <input type="number" id="bearing1" value="45" min="0" max="359" step="1">
+                        </div>
+                        <div>
+                            <label>Distance (NM)</label>
+                            <input type="number" id="distance1" value="8" min="0" max="50" step="0.1">
+                        </div>
+                    </div>
+                    <div class="time-input-wrapper">
+                        <label>Heure (HH:MM)</label>
+                        <input type="time" id="time1" value="12:00" step="60">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <h3 style="color: var(--grid-blue); margin-bottom: 1rem; font-family: 'Orbitron', sans-serif;">Position 2</h3>
+                    <div class="input-row">
+                        <div>
+                            <label id="bearing2Label">Relèvement (°)</label>
+                            <input type="number" id="bearing2" value="50" min="0" max="359" step="1">
+                        </div>
+                        <div>
+                            <label>Distance (NM)</label>
+                            <input type="number" id="distance2" value="6" min="0" max="50" step="0.1">
+                        </div>
+                    </div>
+                    <div class="time-input-wrapper">
+                        <label>Heure (HH:MM)</label>
+                        <input type="time" id="time2" value="12:12" step="60">
+                    </div>
+                </div>
+            </div>
+
+            <div class="radar-canvas-container">
+                <canvas id="radarCanvas"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffa500;"></div>
+                        <span>Positions Cible</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #a855f7;"></div>
+                        <span>CPA</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg width="28" height="12" viewBox="0 0 28 12">
+                            <line x1="0" y1="6" x2="22" y2="6" stroke="#ffa500" stroke-width="1.5" stroke-dasharray="4 3"/>
+                            <circle cx="24" cy="6" r="3" fill="none" stroke="#ffa500" stroke-width="1.5"/>
+                        </svg>
+                        <span>Position dans 1h</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="triangle-canvas-container">
+                <div id="avoidanceOverlay" class="avoidance-overlay" style="display:none;">
+                    <label>Dist. &eacute;vitement (NM)</label>
+                    <input type="number" id="avoidanceDistance" value="3" min="0.5" max="20" step="0.5">
+                    <button id="avoidanceExit" class="avoidance-exit-btn">&times;</button>
+                </div>
+                <canvas id="triangleCanvas"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ff41;"></div>
+                        <span>Vecteur Propre</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4a90e2;"></div>
+                        <span>Vecteur Relatif</span>
+                    </div>
+                    <div class="legend-item">
+                        <svg width="20" height="12" viewBox="0 0 20 12">
+                            <line x1="0" y1="6" x2="20" y2="6" stroke="#ff3b3b" stroke-width="2" stroke-dasharray="6 3"/>
+                        </svg>
+                        <span>Vecteur Vrai</span>
+                    </div>
+                </div>
+                <div class="scale-control">
+                    <button class="scale-btn" id="scaleDown">&minus;</button>
+                    <span class="scale-label" id="scaleLabel">&Eacute;chelle : 1</span>
+                    <button class="scale-btn" id="scaleUp">+</button>
+                </div>
+            </div>
+
+            <div class="panel panel-results">
+                <h2 class="panel-title">Résultats</h2>
+                <div class="results" id="results">
+                    <div class="result-item">
+                        <span class="result-label">cBr Cap Relatif Cible:</span>
+                        <span class="result-value" id="targetCourse">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">vBr Vitesse Relatif Cible:</span>
+                        <span class="result-value" id="targetSpeed">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">CPA (Distance):</span>
+                        <span class="result-value" id="cpaDistance">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">TCPA (Temps):</span>
+                        <span class="result-value" id="tcpaTime">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Rel&#232;vement du CPA:</span>
+                        <span class="result-value" id="cpaBearing">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Aspect (P2):</span>
+                        <span class="result-value" id="aspect">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">cB Cap Vrai Cible :</span>
+                        <span class="result-value" id="targetCourseTrue">---</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">vB Vitesse Vrai Cible:</span>
+                        <span class="result-value" id="targetSpeedTrue">---</span>
+                    </div>
+                    <div class="avoidance-divider" id="avoidanceDivider">&Eacute;VITEMENT</div>
+                    <div class="result-item avoidance-result" id="avoidCourseSection">
+                        <span class="result-label">Cap &Eacute;vitement:</span>
+                        <span class="result-value" id="avoidRelCourse">---</span>
+                    </div>
+                    <div class="result-item avoidance-result" id="avoidSpeedSection">
+                        <span class="result-label">Vitesse &Eacute;vitement:</span>
+                        <span class="result-value" id="avoidRelSpeed">---</span>
+                    </div>
+                    <div class="result-item avoidance-result" id="avoidanceSection">
+                        <span class="result-label">CPA &Eacute;vitement:</span>
+                        <span class="result-value" id="avoidCpaDistance">---</span>
+                    </div>
+                    <div class="result-item avoidance-result" id="avoidanceTcpaSection">
+                        <span class="result-label">TCPA &Eacute;vitement:</span>
+                        <span class="result-value" id="avoidTcpaTime">---</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="animation-panel">
+            <h2 class="panel-title">Animation</h2>
+            <canvas id="animationCanvas"></canvas>
+            <div class="anim-controls">
+                <button class="anim-play-btn" id="animPlayBtn">&#9654;</button>
+                <input type="range" id="animSlider" min="0" max="1000" value="0" step="1">
+                <span class="anim-time-label" id="animTimeLabel">+00:00</span>
+            </div>
+            <div class="legend anim-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff41;"></div>
+                    <span>Propre Navire</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff3b3b;"></div>
+                    <span>Cible</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
