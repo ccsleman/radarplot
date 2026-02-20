@@ -562,19 +562,45 @@
             const [hours, minutes] = timeString.split(':').map(Number);
             return hours * 60 + minutes;
         }
+
+        // true bearing is relevement, relative bearing is gisement
+        function trueToRelativeBearing(trueBearing, ownCourse) {
+            return (trueBearing - ownCourse + 360) % 360;
+        }
+
+        function relativeToTrueBearing(relativeBearing, ownCourse) {
+            return (relativeBearing + ownCourse + 360) % 360;
+        }
+
+        function trueToDisplayBearing(trueBearing, ownCourse) {
+            if (orientationMode === 'north-up') {
+                return trueBearing;
+            } else {
+                return trueToRelativeBearing(trueBearing, ownCourse);
+            }
+        }
+
+        function displayToTrueBearing(displayBearing, ownCourse) {
+            if (orientationMode === 'north-up') {
+                return displayBearing;
+            } else {
+                return relativeToTrueBearing(displayBearing, ownCourse);
+            }
+        }
         
         function selectTarget(index) {
             currentTarget = index;
             const buttons = document.querySelectorAll('.target-btn');
+            ownCourse = parseFloat(document.getElementById('ownCourse').value);
             buttons.forEach((btn, i) => {
                 btn.classList.toggle('active', i === index);
             });
             
             const target = targets[index];
-            document.getElementById('bearing1').value = target.bearing1;
+            document.getElementById('bearing1').value = trueToDisplayBearing(target.bearing1, ownCourse);
             document.getElementById('distance1').value = target.distance1;
             document.getElementById('time1').value = target.time1;
-            document.getElementById('bearing2').value = target.bearing2;
+            document.getElementById('bearing2').value = trueToDisplayBearing(target.bearing2, ownCourse);
             document.getElementById('distance2').value = target.distance2;
             document.getElementById('time2').value = target.time2;
             
@@ -595,7 +621,9 @@
         }
         
         function setOrientation(mode) {
+            changedOrientation = mode !== orientationMode;
             orientationMode = mode;
+            ownCourse = parseFloat(document.getElementById('ownCourse').value);
             
             const northBtn = document.getElementById('northUpBtn');
             const headBtn = document.getElementById('headUpBtn');
@@ -603,9 +631,17 @@
             if (mode === 'north-up') {
                 northBtn.classList.add('active');
                 headBtn.classList.remove('active');
+                if (changedOrientation) {
+                    document.getElementById('bearing1').value = relativeToTrueBearing(parseFloat(document.getElementById('bearing1').value), ownCourse);
+                    document.getElementById('bearing2').value = relativeToTrueBearing(parseFloat(document.getElementById('bearing2').value), ownCourse);
+                }
             } else {
                 headBtn.classList.add('active');
                 northBtn.classList.remove('active');
+                if (changedOrientation) {
+                    document.getElementById('bearing1').value = trueToRelativeBearing(parseFloat(document.getElementById('bearing1').value), ownCourse);
+                    document.getElementById('bearing2').value = trueToRelativeBearing(parseFloat(document.getElementById('bearing2').value), ownCourse);
+                }
             }
             
             updateBearingLabels();
@@ -621,15 +657,7 @@
         }
         
         function polarToCartesian(bearing, distance, centerX, centerY, scale) {
-            let adjustedBearing = bearing;
-            
-            // En mode Head-Up, on ajuste le relèvement par rapport au cap du navire
-            if (orientationMode === 'head-up') {
-                const ownCourse = parseFloat(document.getElementById('ownCourse').value);
-                adjustedBearing = bearing - ownCourse;
-            }
-            
-            const angleRad = (adjustedBearing - 90) * Math.PI / 180;
+            const angleRad = (bearing - 90) * Math.PI / 180;
             const x = centerX + distance * scale * Math.cos(angleRad);
             const y = centerY + distance * scale * Math.sin(angleRad);
             return { x, y };
@@ -665,12 +693,7 @@
             
             for (let angle = 0; angle < 360; angle += 30) {
                 let displayAngle = angle;
-                
-                // En mode Head-Up, on ajuste l'affichage des angles
-                if (orientationMode === 'head-up') {
-                    displayAngle = (angle - ownCourse + 360) % 360;
-                }
-                
+
                 const rad = displayAngle * Math.PI / 180;
                 ctx.beginPath();
                 ctx.moveTo(centerX, centerY);
@@ -794,7 +817,7 @@
                 const dy_nm = (pos2.y - pos1.y) / scale;
                 
                 const targetSpeed = Math.sqrt(dx_nm * dx_nm + dy_nm * dy_nm) / deltaTime;
-                const targetCourse = (Math.atan2(dx_nm, -dy_nm) * 180 / Math.PI + 360) % 360;
+                const targetCourse = displayToTrueBearing((Math.atan2(dx_nm, -dy_nm) * 180 / Math.PI + 360) % 360, ownCourse);
                 
                 // === GRAPHIQUE DES VECTEURS EN BAS ===
                 const graphY = height - 80;
@@ -851,6 +874,8 @@
                 const relVy = targetSpeed * vectorScale * Math.sin(relativeVectorAngle);
                 const relVectorEndX = ownVectorEndX + relVx;
                 const relVectorEndY = ownVectorEndY + relVy;
+                const targetTrueSpeed = Math.sqrt((graphCenterX - relVectorEndX)**2 + (graphY - relVectorEndY)**2) / vectorScale;
+                const targetTrueCourse = displayToTrueBearing((Math.atan2(relVectorEndX - graphCenterX, graphY - relVectorEndY) * 180 / Math.PI + 360) % 360, ownCourse);
                 
                 // Dessiner vecteur bleu
                 ctx.strokeStyle = '#4a90e2';
@@ -888,7 +913,7 @@
                 ctx.fillStyle = '#ff3b3b';
                 ctx.font = 'bold 11px Share Tech Mono';
                 ctx.textAlign = 'right';
-                ctx.fillText(`Vrai ${targetSpeed.toFixed(1)} kts`, relVectorEndX - 8, relVectorEndY);
+                ctx.fillText(`Vrai ${targetTrueSpeed.toFixed(1)} kts`, relVectorEndX - 8, relVectorEndY);
                 
                 // Point central
                 ctx.fillStyle = '#ffffff';
@@ -901,37 +926,23 @@
                 ctx.font = 'bold 12px Orbitron';
                 ctx.textAlign = 'center';
                 ctx.fillText('TRIANGLE DES VITESSES', centerX, height - 120);
-                
-                // Calcul CPA
-                const ownVx_kts = ownSpeed * Math.sin(ownCourse * Math.PI / 180);
-                const ownVy_kts = -ownSpeed * Math.cos(ownCourse * Math.PI / 180);
-                const targetVx_kts = targetSpeed * Math.sin(targetCourse * Math.PI / 180);
-                const targetVy_kts = -targetSpeed * Math.cos(targetCourse * Math.PI / 180);
-                
-                const relVx_kts = targetVx_kts - ownVx_kts;
-                const relVy_kts = targetVy_kts - ownVy_kts;
-                const relSpeed = Math.sqrt(relVx_kts * relVx_kts + relVy_kts * relVy_kts);
-                
-                if (relSpeed > 0.1) {
-                    // Position relative actuelle de la cible
-                    const relX = distance2 * Math.sin(bearing2 * Math.PI / 180);
-                    const relY = -distance2 * Math.cos(bearing2 * Math.PI / 180);
-                    
-                    // Calcul TCPA
-                    const tcpa = -(relX * relVx_kts + relY * relVy_kts) / (relSpeed * relSpeed);
-                    
-                    // Position CPA
-                    const cpaX_nm = relX + relVx_kts * tcpa;
-                    const cpaY_nm = relY + relVy_kts * tcpa;
-                    const cpaDistance = Math.sqrt(cpaX_nm * cpaX_nm + cpaY_nm * cpaY_nm);
-                    
-                    // Dessiner CPA sur le radar principal
-                    const cpaX_canvas = centerX + cpaX_nm * scale;
-                    const cpaY_canvas = centerY + cpaY_nm * scale;
+
+                if (targetSpeed > 0.1) {
+                    const lengthSquared = dx_nm * dx_nm + dy_nm * dy_nm;
+                    const t = ((centerX - pos1.x) * dx_nm + (centerY - pos1.y) * dy_nm) / lengthSquared;
+
+                    const cpa_canvas = {
+                        x: pos1.x + t * dx_nm,
+                        y: pos1.y + t * dy_nm,
+                    };
+
+                    const cpaDistance = Math.sqrt((centerX - cpa_canvas.x)**2 + (centerY - cpa_canvas.y)**2) / scale;
+                    const targetToCpaDistance = Math.sqrt((pos2.x - cpa_canvas.x)**2 + (pos2.y - cpa_canvas.y)**2) / scale;
+                    const tcpa = targetToCpaDistance / targetSpeed;
                     
                     ctx.fillStyle = '#a855f7';
                     ctx.beginPath();
-                    ctx.arc(cpaX_canvas, cpaY_canvas, 8, 0, Math.PI * 2);
+                    ctx.arc(cpa_canvas.x, cpa_canvas.y, 8, 0, Math.PI * 2);
                     ctx.fill();
                     
                     ctx.strokeStyle = '#a855f7';
@@ -939,16 +950,16 @@
                     ctx.setLineDash([5, 5]);
                     ctx.beginPath();
                     ctx.moveTo(centerX, centerY);
-                    ctx.lineTo(cpaX_canvas, cpaY_canvas);
+                    ctx.lineTo(cpa_canvas.x, cpa_canvas.y);
                     ctx.stroke();
                     ctx.setLineDash([]);
                     
                     ctx.fillStyle = '#a855f7';
                     ctx.font = 'bold 12px Share Tech Mono';
-                    ctx.fillText('CPA', cpaX_canvas + 12, cpaY_canvas - 12);
+                    ctx.fillText('CPA', cpa_canvas.x + 12, cpa_canvas.y - 12);
                     
-                    const cpaBearing = (Math.atan2(cpaX_nm, -cpaY_nm) * 180 / Math.PI + 360) % 360;
-                    const aspect = (targetCourse - bearing2 + 360) % 360;
+                    // const cpaBearing = (Math.atan2(cpaX_nm, -cpaY_nm) * 180 / Math.PI + 360) % 360;
+                    // const aspect = (targetCourse - bearing2 + 360) % 360;
                     
                     // Mise à jour résultats
                     document.getElementById('targetCourse').textContent = targetCourse.toFixed(1) + '°';
@@ -962,16 +973,19 @@
                     tcpaElem.textContent = (tcpa * 60).toFixed(1) + ' min';
                     tcpaElem.className = 'result-value' + (tcpa * 60 < 30 && cpaDistance < 2 ? ' danger' : '');
                     
-                    document.getElementById('aspect').textContent = aspect.toFixed(1) + '°';
-                    document.getElementById('cpaBearing').textContent = cpaBearing.toFixed(1) + '°';
+                    // document.getElementById('aspect').textContent = aspect.toFixed(1) + '°';
+                    // document.getElementById('cpaBearing').textContent = cpaBearing.toFixed(1) + '°';
                 } else {
                     document.getElementById('targetCourse').textContent = targetCourse.toFixed(1) + '°';
                     document.getElementById('targetSpeed').textContent = targetSpeed.toFixed(1) + ' kts';
                     document.getElementById('cpaDistance').textContent = 'N/A';
                     document.getElementById('tcpaTime').textContent = 'N/A';
-                    document.getElementById('aspect').textContent = 'N/A';
-                    document.getElementById('cpaBearing').textContent = 'N/A';
+                    // document.getElementById('aspect').textContent = 'N/A';
+                    // document.getElementById('cpaBearing').textContent = 'N/A';
                 }
+                document.getElementById('targetSpeedTrue').textContent = targetTrueSpeed.toFixed(1) + ' kts';
+                document.getElementById('targetCourseTrue').textContent = targetTrueCourse.toFixed(1) + '°';
+
             }
         }
         
