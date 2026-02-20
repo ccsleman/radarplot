@@ -115,6 +115,11 @@ export function renderForm(model, results, avoidanceResults) {
         btn.classList.toggle('active', i === currentTargetIndex);
     });
 
+    document.getElementById('avoidanceOverlay').style.display = model.avoidance.active ? 'flex' : 'none';
+    if (model.avoidance.active) {
+        setInputValue('avoidanceDistance', model.avoidance.distance);
+    }
+
     renderResults(results);
     renderAvoidanceResults(model.avoidance, avoidanceResults);
 }

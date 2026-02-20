@@ -1,4 +1,13 @@
-import { NICE_SCALES } from './draw.js';
+import { NICE_SCALES, RING_COUNT, BASE_KTS_PER_RING } from './draw.js';
+
+const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
+
+function bestFitScaleIndex(maxSpeed) {
+    for (let i = NICE_SCALES.length - 1; i >= 0; i--) {
+        if (maxSpeed * NICE_SCALES[i].value <= MAX_CHART_KNOTS) return i;
+    }
+    return 0;
+}
 
 export function createModel() {
     return {
@@ -27,6 +36,13 @@ export function createModel() {
 
         notify() {
             for (const fn of this._listeners) fn();
+        },
+
+        autoFitTriangleScale(results) {
+            if (!this.triangleScaleManual && results) {
+                const maxSpeed = Math.max(this.ownShip.speed, results.trueTarget.speed);
+                this.triangleScaleIndex = bestFitScaleIndex(maxSpeed);
+            }
         },
 
         resetTriangleScale() {

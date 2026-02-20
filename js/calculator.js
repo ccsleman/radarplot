@@ -147,6 +147,13 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     };
 }
 
+export function computeAvoidanceWithFallback(results, avoidance, targetDistance2) {
+    if (!avoidance.active || !results) return null;
+    const clampedDist = Math.min(avoidance.distance, targetDistance2);
+    return computeAvoidanceResults(results, avoidance.course, avoidance.speed, clampedDist)
+        || computeAvoidanceResults(results, avoidance.course, avoidance.speed, targetDistance2);
+}
+
 export function computeResults(target, ownShip) {
     const pos1 = polarToCartesian(target.bearing1, target.distance1);
     const pos2 = polarToCartesian(target.bearing2, target.distance2);

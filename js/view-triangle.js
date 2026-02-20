@@ -5,15 +5,14 @@ import {
 
 const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
 
-export function bestFitScaleIndex(maxSpeed) {
-    for (let i = NICE_SCALES.length - 1; i >= 0; i--) {
-        if (maxSpeed * NICE_SCALES[i].value <= MAX_CHART_KNOTS) return i;
-    }
-    return 0;
+function scaleLabel(scaleIndex) {
+    return `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
 }
 
-export function scaleLabel(scaleIndex) {
-    return `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
+export function renderScaleLabel(el, scaleIndex) {
+    if (scaleIndex !== null) {
+        el.textContent = scaleLabel(scaleIndex);
+    }
 }
 
 function drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation) {
@@ -131,6 +130,106 @@ function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidance
 
     ctx.globalAlpha = 1.0;
 }
+
+/* ── Drag interaction ── */
+
+const RAD_TO_DEG = 180 / Math.PI;
+const HIT_RADIUS = 20;
+
+function canvasCoords(canvas, e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function canvasToCourseSpeed(st, mx, my) {
+    const relX = mx - st.centerX;
+    const relY = my - st.centerY;
+    const c = st.rotation * Math.PI / 180;
+    const cosC = Math.cos(c);
+    const sinC = Math.sin(c);
+    const nmX = (relX * cosC - relY * sinC) / st.pixelsPerKnot;
+    const nmY = (-relX * sinC - relY * cosC) / st.pixelsPerKnot;
+    const course = (Math.atan2(nmX, nmY) * RAD_TO_DEG + 360) % 360;
+    const speed = Math.max(0, Math.sqrt(nmX * nmX + nmY * nmY));
+    return { course, speed };
+}
+
+function isNearTip(st, mx, my) {
+    const dx = mx - st.tipX;
+    const dy = my - st.tipY;
+    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
+}
+
+function isNearAvoidanceTip(st, mx, my, model) {
+    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, st.pixelsPerKnot, st.rotation);
+    const tipX = st.centerX + offset.dx;
+    const tipY = st.centerY + offset.dy;
+    const dx = mx - tipX;
+    const dy = my - tipY;
+    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
+}
+
+export function setupTriangleInteraction(canvas, model) {
+    let dragging = false;
+
+    function onPointerDown(e) {
+        const pos = canvasCoords(canvas, e);
+        const st = canvas._triangleState;
+        if (!st) return;
+
+        const nearTip = model.avoidance.active
+            ? isNearAvoidanceTip(st, pos.x, pos.y, model)
+            : isNearTip(st, pos.x, pos.y);
+        if (!nearTip) return;
+
+        dragging = true;
+        canvas.style.cursor = 'grabbing';
+        if (e.cancelable) e.preventDefault();
+
+        if (!model.avoidance.active) {
+            const cs = canvasToCourseSpeed(st, pos.x, pos.y);
+            if (cs) model.setAvoidance(cs.course, cs.speed);
+        }
+    }
+
+    function onPointerMove(e) {
+        const pos = canvasCoords(canvas, e);
+        const st = canvas._triangleState;
+        if (dragging) {
+            if (e.cancelable) e.preventDefault();
+            if (st) {
+                const cs = canvasToCourseSpeed(st, pos.x, pos.y);
+                if (cs) model.setAvoidance(cs.course, cs.speed);
+            }
+            return;
+        }
+        if (!st) return;
+        const nearTip = model.avoidance.active
+            ? isNearAvoidanceTip(st, pos.x, pos.y, model)
+            : isNearTip(st, pos.x, pos.y);
+        canvas.style.cursor = nearTip ? 'grab' : 'crosshair';
+    }
+
+    function onPointerUp() {
+        if (dragging) {
+            dragging = false;
+            canvas.style.cursor = 'crosshair';
+        }
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+}
+
+/* ── Rendering ── */
 
 export function renderTriangle(canvas, model, results, avoidanceResults) {
     const ctx = canvas.getContext('2d');

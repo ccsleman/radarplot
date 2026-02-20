@@ -253,6 +253,15 @@ button:active {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.5),
         inset 0 0 50px rgba(0, 255, 65, 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.radar-canvas-container:hover {
+    border-color: var(--grid-blue);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 0 50px rgba(0, 255, 65, 0.05),
+        0 0 20px rgba(74, 144, 226, 0.2);
 }
 
 #radarCanvas,
@@ -274,6 +283,15 @@ button:active {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.5),
         inset 0 0 50px rgba(0, 255, 65, 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.triangle-canvas-container:hover {
+    border-color: var(--grid-blue);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 0 50px rgba(0, 255, 65, 0.05),
+        0 0 20px rgba(74, 144, 226, 0.2);
 }
 
 .scale-control {
@@ -579,6 +597,15 @@ button:active {
     box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.5),
         inset 0 0 50px rgba(0, 255, 65, 0.05);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.animation-panel:hover {
+    border-color: var(--grid-blue);
+    box-shadow:
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 0 50px rgba(0, 255, 65, 0.05),
+        0 0 20px rgba(74, 144, 226, 0.2);
 }
 
 .animation-panel .panel-title {
