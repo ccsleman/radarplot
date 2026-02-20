@@ -10,9 +10,9 @@ function createViewTransform(centerX, centerY, scale, rotation) {
         toCanvas(nmX, nmY) {
             return {
                 x: centerX + (nmX * cosC - nmY * sinC) * scale,
-                y: centerY - (nmY * cosC + nmX * sinC) * scale
+                y: centerY - (nmY * cosC + nmX * sinC) * scale,
             };
-        }
+        },
     };
 }
 

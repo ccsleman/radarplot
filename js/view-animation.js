@@ -5,7 +5,7 @@ export {
     computeTimeline,
     lerpAngle,
     computeBearingAndDistance,
-    computeBoundingBox
+    computeBoundingBox,
 } from './anim/compute.js';
 
 import { setCanvasLogical } from './draw.js';

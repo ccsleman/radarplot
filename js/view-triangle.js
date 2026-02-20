@@ -1,7 +1,7 @@
 import { DEG_TO_RAD, RAD_TO_DEG, normalizeBearing } from './constants.js';
 import {
     COLORS, NICE_SCALES, RING_COUNT, BASE_KTS_PER_RING,
-    setupCanvas, getCanvasLogical, bearingToCanvasOffset, drawArrowHead, drawPolarGrid
+    setupCanvas, getCanvasLogical, bearingToCanvasOffset, drawArrowHead, drawPolarGrid,
 } from './draw.js';
 
 const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
@@ -282,6 +282,6 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
         centerX,
         centerY,
         pixelsPerKnot,
-        rotation
+        rotation,
     };
 }

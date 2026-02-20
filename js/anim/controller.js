@@ -3,7 +3,7 @@ import { COLORS, getCanvasLogical } from '../draw.js';
 import {
     computeOwnPosition, computeTargetPosition,
     computeAvoidanceOwnPosition, computeTimeline,
-    computeBoundingBox, computeBearingAndDistance, lerpAngle
+    computeBoundingBox, computeBearingAndDistance, lerpAngle,
 } from './compute.js';
 import { drawBoatHull, drawWake } from './boat.js';
 import { drawMiniRadar } from './mini-radar.js';
@@ -20,7 +20,7 @@ function createNmToPixel(scene) {
         const cy = (bbox.minY + bbox.maxY) / 2;
         return {
             px: canvasW / 2 + (nmX - cx) * pixelsPerNM,
-            py: canvasH / 2 - (nmY - cy) * pixelsPerNM
+            py: canvasH / 2 - (nmY - cy) * pixelsPerNM,
         };
     };
 }
@@ -127,7 +127,7 @@ export function createAnimationController() {
                 cx: margin, cy: margin, radius: radarR,
                 targetBearing: mainBD.bearing, targetDist: mainBD.distance,
                 heading: ownCourse, speed: scene.ownSpeed,
-                orientationMode: scene.orientationMode, alpha: 1
+                orientationMode: scene.orientationMode, alpha: 1,
             });
 
             if (scene.avoidVelocity) {
@@ -150,7 +150,7 @@ export function createAnimationController() {
                     targetBearing: avoidBD.bearing, targetDist: avoidBD.distance,
                     heading: radarHeading, speed: avoidSpeedNow,
                     orientationMode: scene.orientationMode,
-                    alpha: avoidAlpha, label: '\u00C9vitement'
+                    alpha: avoidAlpha, label: '\u00C9vitement',
                 });
             }
         }
@@ -278,7 +278,7 @@ export function createAnimationController() {
                 computeOwnPosition(ownVelocity, timeline.tStart),
                 computeOwnPosition(ownVelocity, timeline.tEnd),
                 computeTargetPosition(pos2, targetVelocity, timeline.tStart),
-                computeTargetPosition(pos2, targetVelocity, timeline.tEnd)
+                computeTargetPosition(pos2, targetVelocity, timeline.tEnd),
             ];
 
             if (avoidVelocity) {
@@ -314,7 +314,7 @@ export function createAnimationController() {
                 tManeuver,
                 cpaDistance: results.cpa.distance,
                 tCpaAvoid,
-                cpaAvoidDistance
+                cpaAvoidDistance,
             };
 
             nmToPixel = createNmToPixel(scene);
@@ -323,6 +323,6 @@ export function createAnimationController() {
             updateControlsUI();
             drawFrame(performance.now());
             updateSliderUI();
-        }
+        },
     };
 }

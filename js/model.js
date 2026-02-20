@@ -22,7 +22,7 @@ export function createModel() {
             { bearing1: 90, distance1: 10, time1: '14:00', bearing2: 95, distance2: 8, time2: '14:15' },
             { bearing1: 180, distance1: 12, time1: '16:30', bearing2: 185, distance2: 9, time2: '16:48' },
             { bearing1: 270, distance1: 7, time1: '09:15', bearing2: 275, distance2: 5, time2: '09:25' },
-            { bearing1: 315, distance1: 9, time1: '11:00', bearing2: 320, distance2: 7, time2: '11:14' }
+            { bearing1: 315, distance1: 9, time1: '11:00', bearing2: 320, distance2: 7, time2: '11:14' },
         ],
         _listeners: [],
 
@@ -102,6 +102,6 @@ export function createModel() {
         exitAvoidance() {
             this.avoidance.active = false;
             this.notify();
-        }
+        },
     };
 }

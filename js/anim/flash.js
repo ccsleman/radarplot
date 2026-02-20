@@ -2,7 +2,7 @@ import { COLORS } from '../draw.js';
 import { hexToRgba } from './boat.js';
 import {
     computeOwnPosition, computeTargetPosition,
-    computeAvoidanceOwnPosition, computeBearingAndDistance
+    computeAvoidanceOwnPosition, computeBearingAndDistance,
 } from './compute.js';
 
 const CPA_FLASH_DURATION_SEC = 1.5;
@@ -19,7 +19,7 @@ export function buildFlashEvents(scene, nmToPixel) {
         label: `CPA : ${scene.cpaDistance.toFixed(1)} NM`,
         color: COLORS.cpa,
         p1: () => nmToPixel(ownAtCpa.x, ownAtCpa.y),
-        p2: () => nmToPixel(targetAtCpa.x, targetAtCpa.y)
+        p2: () => nmToPixel(targetAtCpa.x, targetAtCpa.y),
     });
 
     if (scene.avoidVelocity) {
@@ -33,7 +33,7 @@ export function buildFlashEvents(scene, nmToPixel) {
             label: `Man\u0153uvre : ${maneuverDist.toFixed(1)} NM`,
             color: COLORS.ownShip,
             p1: () => nmToPixel(ownAtManeuver.x, ownAtManeuver.y),
-            p2: () => nmToPixel(targetAtManeuver.x, targetAtManeuver.y)
+            p2: () => nmToPixel(targetAtManeuver.x, targetAtManeuver.y),
         });
 
         const avoidOwnAtCpa = computeAvoidanceOwnPosition(
@@ -46,7 +46,7 @@ export function buildFlashEvents(scene, nmToPixel) {
             label: `CPA' : ${scene.cpaAvoidDistance.toFixed(1)} NM`,
             color: COLORS.cpa,
             p1: () => nmToPixel(avoidOwnAtCpa.x, avoidOwnAtCpa.y),
-            p2: () => nmToPixel(targetAtCpaAvoid.x, targetAtCpaAvoid.y)
+            p2: () => nmToPixel(targetAtCpaAvoid.x, targetAtCpaAvoid.y),
         });
     }
 

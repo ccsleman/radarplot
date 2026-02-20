@@ -34,7 +34,7 @@ export const COLORS = {
     trueVector: '#ff3b3b',
     cpa: '#a855f7',
     white: '#ffffff',
-    triangleTitle: 'rgba(148, 184, 216, 0.8)'
+    triangleTitle: 'rgba(148, 184, 216, 0.8)',
 };
 
 export function bearingToCanvasOffset(bearingDeg, magnitude, pixelScale, rotationDeg) {
@@ -44,7 +44,7 @@ export function bearingToCanvasOffset(bearingDeg, magnitude, pixelScale, rotatio
     const sinC = Math.sin(c);
     return {
         dx: (nm.x * cosC - nm.y * sinC) * pixelScale,
-        dy: -(nm.y * cosC + nm.x * sinC) * pixelScale
+        dy: -(nm.y * cosC + nm.x * sinC) * pixelScale,
     };
 }
 

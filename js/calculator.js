@@ -10,14 +10,14 @@ export function polarToCartesian(bearingDeg, distance) {
     const rad = bearingDeg * DEG_TO_RAD;
     return {
         x: distance * Math.sin(rad),
-        y: distance * Math.cos(rad)
+        y: distance * Math.cos(rad),
     };
 }
 
 export function cartesianToPolar(x, y) {
     return {
         bearing: normalizeBearing(Math.atan2(x, y) * RAD_TO_DEG),
-        distance: Math.sqrt(x * x + y * y)
+        distance: Math.sqrt(x * x + y * y),
     };
 }
 
@@ -29,7 +29,7 @@ export function relativeMotion(pos1, pos2, deltaTimeHours) {
         course: polar.bearing,
         speed: polar.distance / deltaTimeHours,
         dx,
-        dy
+        dy,
     };
 }
 
@@ -42,7 +42,7 @@ export function closestPointOfApproach(pos1, dx, dy) {
     const t = -(pos1.x * dx + pos1.y * dy) / lengthSq;
     const point = {
         x: pos1.x + t * dx,
-        y: pos1.y + t * dy
+        y: pos1.y + t * dy,
     };
     const distance = Math.sqrt(point.x * point.x + point.y * point.y);
     return { distance, point, t };
@@ -107,8 +107,8 @@ export function findManeuverPoint(pos2, dx, dy, avoidanceDistance) {
         s,
         point: {
             x: pos2.x + s * dx,
-            y: pos2.y + s * dy
-        }
+            y: pos2.y + s * dy,
+        },
     };
 }
 
@@ -121,7 +121,7 @@ export function computeNewRelativeMotion(trueTargetCourse, trueTargetSpeed, newC
         course: polar.bearing,
         speed: polar.distance,
         dx: relVel.x,
-        dy: relVel.y
+        dy: relVel.y,
     };
 }
 
@@ -151,6 +151,10 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
     const timeToManeuverHours = maneuver.s * deltaTime;
     const totalTcpaHours = timeToManeuverHours + clampedT;
     const remainingTime = Math.max(0, 1 - timeToManeuverHours);
+    const prediction = {
+        x: maneuver.point.x + newRel.dx * remainingTime,
+        y: maneuver.point.y + newRel.dy * remainingTime,
+    };
 
     return {
         maneuverNeeded: maneuver.maneuverNeeded,
@@ -161,12 +165,9 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
             distance: cpaDistance,
             point: cpaPoint,
             bearing: cpaBearing,
-            tcpaMinutes: totalTcpaHours * 60
+            tcpaMinutes: totalTcpaHours * 60,
         },
-        prediction: {
-            x: maneuver.point.x + newRel.dx * remainingTime,
-            y: maneuver.point.y + newRel.dy * remainingTime
-        }
+        prediction,
     };
 }
 
@@ -194,6 +195,10 @@ export function computeTargetTracking(target, ownShip) {
     const cpaBearing = cartesianToPolar(cpa.point.x, cpa.point.y).bearing;
     const bearingTargetToOwnAtP2 = normalizeBearing(target.bearing2 + 180);
     const aspect = normalizeBearing(bearingTargetToOwnAtP2 - trueTarget.bearing);
+    const prediction = {
+        x: pos2.x + relative.dx / deltaTime,
+        y: pos2.y + relative.dy / deltaTime,
+    };
 
     return {
         pos1,
@@ -203,17 +208,14 @@ export function computeTargetTracking(target, ownShip) {
             distance: cpa.distance,
             point: cpa.point,
             bearing: cpaBearing,
-            tcpaMinutes: tcpaHours * 60
+            tcpaMinutes: tcpaHours * 60,
         },
         trueTarget: {
             course: trueTarget.bearing,
-            speed: trueTarget.distance
+            speed: trueTarget.distance,
         },
         aspect,
         aspectLabel: formatAspect(aspect),
-        prediction: {
-            x: pos2.x + relative.dx / deltaTime,
-            y: pos2.y + relative.dy / deltaTime
-        }
+        prediction,
     };
 }

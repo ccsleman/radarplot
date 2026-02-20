@@ -56,6 +56,6 @@ export function computeBoundingBox(points) {
         minX: minX - pad,
         minY: minY - pad,
         maxX: maxX + pad,
-        maxY: maxY + pad
+        maxY: maxY + pad,
     };
 }
