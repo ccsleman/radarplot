@@ -1,4 +1,5 @@
 import { polarToCartesian } from '../calculator.js';
+import { formatMinutes } from '../constants.js';
 import { COLORS, getCanvasLogical } from '../draw.js';
 import {
     computeOwnPosition, computeTargetPosition,
@@ -54,15 +55,7 @@ export function createAnimationController() {
         const fraction = (simTime - tStart) / range;
         controls.slider.value = Math.round(fraction * 1000);
 
-        const simHours = simTime;
-        if (simHours >= 1) {
-            const h = Math.floor(simHours);
-            const m = Math.round((simHours - h) * 60);
-            controls.timeLabel.textContent = `P2+${h}h${String(m).padStart(2, '0')}min`;
-        } else {
-            const m = Math.round(simHours * 60);
-            controls.timeLabel.textContent = `P2+${m} min`;
-        }
+        controls.timeLabel.textContent = `P2+${formatMinutes(simTime * 60)}`;
     }
 
     function updateControlsUI() {

@@ -1,4 +1,4 @@
-import { MIN_MOVEMENT_SPEED } from './constants.js';
+import { MIN_MOVEMENT_SPEED, formatMinutes } from './constants.js';
 import { trueToDisplay } from './bearings.js';
 
 function setInputValue(id, value) {
@@ -49,7 +49,7 @@ function renderResults(results) {
 
         const tcpaEl = document.getElementById('tcpaTime');
         const minutes = results.cpa.tcpaMinutes;
-        tcpaEl.textContent = minutes.toFixed(1) + ' min';
+        tcpaEl.textContent = formatMinutes(minutes);
         tcpaEl.className = tcpaClass(minutes, results.cpa.distance);
 
         setResult('cpaBearing', results.cpa.bearing.toFixed(1) + '\u00B0');
@@ -88,7 +88,7 @@ function renderAvoidanceResults(avoidance, avoidanceResults) {
 
     const tcpaEl = document.getElementById('avoidTcpaTime');
     const minutes = avoidanceResults.cpa.tcpaMinutes;
-    tcpaEl.textContent = minutes.toFixed(1) + ' min';
+    tcpaEl.textContent = formatMinutes(minutes);
     tcpaEl.className = tcpaClass(minutes, avoidanceResults.cpa.distance);
 }
 
