@@ -467,7 +467,7 @@ button:active {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.8rem;
-    margin-top: 1.5rem;
+    margin-top: 0.2rem;
     padding: 1rem;
     background: rgba(10, 25, 41, 0.4);
     border-radius: 8px;
@@ -515,30 +515,36 @@ button:active {
     }
 }
 
-.avoidance-overlay {
-    position: absolute;
-    top: 0.8rem;
-    right: 0.8rem;
+.avoidance-bar {
+    display: flex;
+    align-items: center;
+    height: 2rem;
+    padding: 0 0.4rem;
+    margin-top: 0.3rem;
+}
+
+.avoidance-hint {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    letter-spacing: 0.02em;
+}
+
+.avoidance-controls {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.8rem;
-    background: rgba(10, 25, 41, 0.92);
-    border: 1px solid var(--radar-green);
-    border-radius: 6px;
-    backdrop-filter: blur(8px);
-    z-index: 10;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    width: 100%;
 }
 
-.avoidance-overlay label {
+.avoidance-controls label {
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin: 0;
     white-space: nowrap;
 }
 
-.avoidance-overlay input[type="number"] {
+.avoidance-controls input[type="number"] {
     width: 4.5rem;
     padding: 0.35rem 0.5rem;
     font-size: 0.85rem;
