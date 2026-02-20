@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertClose, assertCloseLoose } from './helpers.js';
 import {
     computeOwnPosition,
     computeTargetPosition,
@@ -9,17 +10,7 @@ import {
     computeBearingAndDistance,
     lerpAngle
 } from '../js/view-animation.js';
-import { polarToCartesian, computeResults } from '../js/calculator.js';
-
-const EPSILON = 1e-9;
-
-function assertClose(actual, expected, message) {
-    assert.ok(Math.abs(actual - expected) < EPSILON, message || `expected ${expected}, got ${actual}`);
-}
-
-function assertCloseLoose(actual, expected, tolerance, message) {
-    assert.ok(Math.abs(actual - expected) < tolerance, message || `expected ~${expected}, got ${actual}`);
-}
+import { polarToCartesian, computeTargetTracking } from '../js/calculator.js';
 
 describe('computeOwnPosition', () => {
     it('returns origin at t=0', () => {
@@ -277,7 +268,7 @@ describe('CPA geometry verification', () => {
     it('distance between boats at tCpa matches results.cpa.distance', () => {
         const target = { bearing1: 45, distance1: 8, time1: '12:00', bearing2: 50, distance2: 6, time2: '12:12' };
         const ownShip = { course: 0, speed: 12 };
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         assert.ok(results !== null);
 
         const ownVelocity = polarToCartesian(ownShip.course, ownShip.speed);

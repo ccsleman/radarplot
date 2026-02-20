@@ -1,82 +1,75 @@
+import { DEG_TO_RAD, RAD_TO_DEG, normalizeBearing } from './constants.js';
 import {
-    COLORS, NICE_SCALES, RING_COUNT, BASE_KTS_PER_RING,
-    setupCanvas, bearingToCanvasOffset, drawArrowHead, drawPolarGrid
+    COLORS, NICE_SCALES, RING_COUNT, BASE_KTS_PER_RING, MAX_CHART_KNOTS,
+    setupCanvas, getCanvasLogical, bearingToCanvasOffset, drawArrowHead, drawPolarGrid,
 } from './draw.js';
 
-const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
+let triangleState = null;
 
-export function bestFitScaleIndex(maxSpeed) {
-    for (let i = NICE_SCALES.length - 1; i >= 0; i--) {
-        if (maxSpeed * NICE_SCALES[i].value <= MAX_CHART_KNOTS) return i;
-    }
-    return 0;
-}
-
-export function scaleLabel(scaleIndex) {
+function scaleLabel(scaleIndex) {
     return `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
 }
 
-function drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation) {
-    if (model.ownShip.speed <= 0) return { x: centerX, y: centerY };
+export function renderScaleLabel(el, scaleIndex) {
+    if (scaleIndex !== null) {
+        el.textContent = scaleLabel(scaleIndex);
+    }
+}
 
-    const offset = bearingToCanvasOffset(model.ownShip.course, model.ownShip.speed, pixelsPerKnot, rotation);
-    const endX = centerX + offset.dx;
-    const endY = centerY + offset.dy;
-
-    ctx.strokeStyle = COLORS.ownShip;
-    ctx.lineWidth = 4;
+function drawVector(ctx, x1, y1, x2, y2, color, { lineWidth = 4, dash, arrowSize = 12, label, labelPos = 'end' } = {}) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lineWidth;
+    if (dash) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(endX, endY);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
-    drawArrowHead(ctx, centerX, centerY, endX, endY, COLORS.ownShip, 12);
+    if (dash) ctx.setLineDash([]);
+    drawArrowHead(ctx, x1, y1, x2, y2, color, arrowSize);
 
-    ctx.fillStyle = COLORS.ownShip;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${model.ownShip.speed.toFixed(1)} kts`, endX + 8, endY);
+    if (label) {
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px Share Tech Mono';
+        if (labelPos === 'mid') {
+            ctx.textAlign = 'left';
+            ctx.fillText(label, (x1 + x2) / 2 + 5, (y1 + y2) / 2 - 5);
+        } else if (labelPos === 'end-right') {
+            ctx.textAlign = 'right';
+            ctx.fillText(label, x2 - 8, y2);
+        } else {
+            ctx.textAlign = 'left';
+            ctx.fillText(label, x2 + 8, y2);
+        }
+    }
+}
 
+function drawOwnShipVector(ctx, tt, model) {
+    if (model.ownShip.speed <= 0) return { x: tt.centerX, y: tt.centerY };
+
+    const offset = bearingToCanvasOffset(model.ownShip.course, model.ownShip.speed, tt.pixelsPerKnot, tt.rotation);
+    const endX = tt.centerX + offset.dx;
+    const endY = tt.centerY + offset.dy;
+    drawVector(ctx, tt.centerX, tt.centerY, endX, endY, COLORS.ownShip, {
+        label: `${model.ownShip.speed.toFixed(1)} kts`,
+    });
     return { x: endX, y: endY };
 }
 
-function drawRelativeVector(ctx, fromX, fromY, results, pixelsPerKnot, rotation) {
-    const offset = bearingToCanvasOffset(results.relative.course, results.relative.speed, pixelsPerKnot, rotation);
+function drawRelativeVector(ctx, tt, fromX, fromY, results) {
+    const offset = bearingToCanvasOffset(results.relative.course, results.relative.speed, tt.pixelsPerKnot, tt.rotation);
     const endX = fromX + offset.dx;
     const endY = fromY + offset.dy;
-
-    ctx.strokeStyle = COLORS.relative;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    drawArrowHead(ctx, fromX, fromY, endX, endY, COLORS.relative, 12);
-
-    ctx.fillStyle = COLORS.relative;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'left';
-    const midX = (fromX + endX) / 2;
-    const midY = (fromY + endY) / 2;
-    ctx.fillText(`Relatif ${results.relative.speed.toFixed(1)} kts`, midX + 5, midY - 5);
-
+    drawVector(ctx, fromX, fromY, endX, endY, COLORS.relative, {
+        label: `${results.relative.speed.toFixed(1)} kts`, labelPos: 'mid',
+    });
     return { x: endX, y: endY };
 }
 
 function drawTrueTargetVector(ctx, centerX, centerY, targetEnd, results) {
-    ctx.strokeStyle = COLORS.trueVector;
-    ctx.lineWidth = 4;
-    ctx.setLineDash([8, 4]);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(targetEnd.x, targetEnd.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    drawArrowHead(ctx, centerX, centerY, targetEnd.x, targetEnd.y, COLORS.trueVector, 12);
-
-    ctx.fillStyle = COLORS.trueVector;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'right';
-    ctx.fillText(`Vrai ${results.trueTarget.speed.toFixed(1)} kts`, targetEnd.x - 8, targetEnd.y);
+    drawVector(ctx, centerX, centerY, targetEnd.x, targetEnd.y, COLORS.trueVector, {
+        dash: [8, 4],
+        label: `${results.trueTarget.speed.toFixed(1)} kts`, labelPos: 'end-right',
+    });
 }
 
 function drawOriginDot(ctx, centerX, centerY) {
@@ -87,54 +80,127 @@ function drawOriginDot(ctx, centerX, centerY) {
 }
 
 export function resizeTriangleCanvas(canvas) {
-    canvas._logical = setupCanvas(canvas);
+    setupCanvas(canvas);
 }
 
-function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidanceResults, pixelsPerKnot, rotation) {
-    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, pixelsPerKnot, rotation);
-    const newOwnEndX = centerX + offset.dx;
-    const newOwnEndY = centerY + offset.dy;
+function drawAvoidanceVectors(ctx, tt, targetEnd, model, avoidanceResults) {
+    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, tt.pixelsPerKnot, tt.rotation);
+    const newOwnEndX = tt.centerX + offset.dx;
+    const newOwnEndY = tt.centerY + offset.dy;
+    const opts = { lineWidth: 3, dash: [6, 4], arrowSize: 10 };
 
     ctx.globalAlpha = 0.4;
-
-    ctx.strokeStyle = COLORS.ownShip;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(newOwnEndX, newOwnEndY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    drawArrowHead(ctx, centerX, centerY, newOwnEndX, newOwnEndY, COLORS.ownShip, 10);
-
-    ctx.fillStyle = COLORS.ownShip;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'left';
-    ctx.fillText(`${model.avoidance.speed.toFixed(1)} kts`, newOwnEndX + 8, newOwnEndY);
-
-    ctx.strokeStyle = COLORS.relative;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([6, 4]);
-    ctx.beginPath();
-    ctx.moveTo(newOwnEndX, newOwnEndY);
-    ctx.lineTo(targetEnd.x, targetEnd.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    drawArrowHead(ctx, newOwnEndX, newOwnEndY, targetEnd.x, targetEnd.y, COLORS.relative, 10);
-
-    ctx.fillStyle = COLORS.relative;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'left';
-    const midX = (newOwnEndX + targetEnd.x) / 2;
-    const midY = (newOwnEndY + targetEnd.y) / 2;
-    ctx.fillText(`Relatif' ${avoidanceResults.relative.speed.toFixed(1)} kts`, midX + 5, midY - 5);
-
+    drawVector(ctx, tt.centerX, tt.centerY, newOwnEndX, newOwnEndY, COLORS.ownShip, {
+        ...opts, label: `${model.avoidance.speed.toFixed(1)} kts`,
+    });
+    drawVector(ctx, newOwnEndX, newOwnEndY, targetEnd.x, targetEnd.y, COLORS.relative, {
+        ...opts, label: `${avoidanceResults.relative.speed.toFixed(1)} kts`, labelPos: 'mid',
+    });
     ctx.globalAlpha = 1.0;
 }
 
+/* ── Drag interaction ── */
+
+const HIT_RADIUS = 20;
+
+function canvasCoords(canvas, e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function canvasToCourseSpeed(st, mx, my) {
+    const relX = mx - st.centerX;
+    const relY = my - st.centerY;
+    const c = st.rotation * DEG_TO_RAD;
+    const cosC = Math.cos(c);
+    const sinC = Math.sin(c);
+    const nmX = (relX * cosC - relY * sinC) / st.pixelsPerKnot;
+    const nmY = (-relX * sinC - relY * cosC) / st.pixelsPerKnot;
+    const course = normalizeBearing(Math.atan2(nmX, nmY) * RAD_TO_DEG);
+    const speed = Math.max(0, Math.sqrt(nmX * nmX + nmY * nmY));
+    return { course, speed };
+}
+
+function isNearTip(st, mx, my) {
+    const dx = mx - st.tipX;
+    const dy = my - st.tipY;
+    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
+}
+
+function isNearAvoidanceTip(st, mx, my, model) {
+    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, st.pixelsPerKnot, st.rotation);
+    const tipX = st.centerX + offset.dx;
+    const tipY = st.centerY + offset.dy;
+    const dx = mx - tipX;
+    const dy = my - tipY;
+    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
+}
+
+export function setupTriangleInteraction(canvas, model) {
+    let dragging = false;
+
+    function onPointerDown(e) {
+        const pos = canvasCoords(canvas, e);
+        const st = triangleState;
+        if (!st) return;
+
+        const nearTip = model.avoidance.active
+            ? isNearAvoidanceTip(st, pos.x, pos.y, model)
+            : isNearTip(st, pos.x, pos.y);
+        if (!nearTip) return;
+
+        dragging = true;
+        canvas.style.cursor = 'grabbing';
+        if (e.cancelable) e.preventDefault();
+
+        if (!model.avoidance.active) {
+            const cs = canvasToCourseSpeed(st, pos.x, pos.y);
+            if (cs) model.setAvoidance(cs.course, cs.speed);
+        }
+    }
+
+    function onPointerMove(e) {
+        const pos = canvasCoords(canvas, e);
+        const st = triangleState;
+        if (dragging) {
+            if (e.cancelable) e.preventDefault();
+            if (st) {
+                const cs = canvasToCourseSpeed(st, pos.x, pos.y);
+                if (cs) model.setAvoidance(cs.course, cs.speed);
+            }
+            return;
+        }
+        if (!st) return;
+        const nearTip = model.avoidance.active
+            ? isNearAvoidanceTip(st, pos.x, pos.y, model)
+            : isNearTip(st, pos.x, pos.y);
+        canvas.style.cursor = nearTip ? 'grab' : 'crosshair';
+    }
+
+    function onPointerUp() {
+        if (dragging) {
+            dragging = false;
+            canvas.style.cursor = 'crosshair';
+        }
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+}
+
+/* ── Rendering ── */
+
 export function renderTriangle(canvas, model, results, avoidanceResults) {
     const ctx = canvas.getContext('2d');
-    const { width, height } = canvas._logical;
+    const { width, height } = getCanvasLogical(canvas);
     const centerX = width / 2;
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2 - 40;
@@ -144,38 +210,34 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
     ctx.fillRect(0, 0, width, height);
 
     const ringLabel = (i) => `${i * BASE_KTS_PER_RING} kts`;
-    drawPolarGrid(ctx, centerX, centerY, maxRadius, RING_COUNT, ringLabel);
-
-    ctx.fillStyle = COLORS.triangleTitle;
-    ctx.font = 'bold 12px Orbitron';
-    ctx.textAlign = 'center';
-    ctx.fillText('TRIANGLE DES VITESSES', centerX, 25);
+    drawPolarGrid(ctx, centerX, centerY, maxRadius, RING_COUNT, ringLabel, { minorAngleStep: 10 });
 
     if (!results) {
-        canvas._triangleState = null;
+        triangleState = null;
         drawOriginDot(ctx, centerX, centerY);
         return;
     }
 
     const scaleFactor = NICE_SCALES[model.triangleScaleIndex]?.value ?? 1;
     const pixelsPerKnot = scaleFactor * maxRadius / MAX_CHART_KNOTS;
+    const tt = { centerX, centerY, pixelsPerKnot, rotation };
 
-    const ownEnd = drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation);
-    const targetEnd = drawRelativeVector(ctx, ownEnd.x, ownEnd.y, results, pixelsPerKnot, rotation);
+    const ownEnd = drawOwnShipVector(ctx, tt, model);
+    const targetEnd = drawRelativeVector(ctx, tt, ownEnd.x, ownEnd.y, results);
     drawTrueTargetVector(ctx, centerX, centerY, targetEnd, results);
 
     if (model.avoidance.active && avoidanceResults) {
-        drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidanceResults, pixelsPerKnot, rotation);
+        drawAvoidanceVectors(ctx, tt, targetEnd, model, avoidanceResults);
     }
 
     drawOriginDot(ctx, centerX, centerY);
 
-    canvas._triangleState = {
+    triangleState = {
         tipX: ownEnd.x,
         tipY: ownEnd.y,
         centerX,
         centerY,
         pixelsPerKnot,
-        rotation
+        rotation,
     };
 }

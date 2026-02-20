@@ -1,31 +1,37 @@
-import { COLORS, setupCanvas, drawArrowHead, drawPolarGrid } from './draw.js';
+import { DEG_TO_RAD, MIN_MOVEMENT_SPEED } from './constants.js';
+import { COLORS, RADAR_RANGES, setupCanvas, getCanvasLogical, drawArrowHead, drawPolarGrid } from './draw.js';
 
-function nmToCanvas(nmX, nmY, centerX, centerY, scale, rotationDeg) {
-    const c = rotationDeg * Math.PI / 180;
+function createViewTransform(centerX, centerY, scale, rotation) {
+    const c = rotation * DEG_TO_RAD;
     const cosC = Math.cos(c);
     const sinC = Math.sin(c);
     return {
-        x: centerX + (nmX * cosC - nmY * sinC) * scale,
-        y: centerY - (nmY * cosC + nmX * sinC) * scale
+        centerX, centerY, scale, rotation,
+        toCanvas(nmX, nmY) {
+            return {
+                x: centerX + (nmX * cosC - nmY * sinC) * scale,
+                y: centerY - (nmY * cosC + nmX * sinC) * scale,
+            };
+        },
     };
 }
 
-function drawHeadingLine(ctx, centerX, centerY, maxRadius, rotation, headingDeg) {
-    const rad = (headingDeg - rotation) * Math.PI / 180;
-    const endX = centerX + maxRadius * Math.sin(rad);
-    const endY = centerY - maxRadius * Math.cos(rad);
+function drawHeadingLine(ctx, vt, maxRadius, headingDeg) {
+    const rad = (headingDeg - vt.rotation) * DEG_TO_RAD;
+    const endX = vt.centerX + maxRadius * Math.sin(rad);
+    const endY = vt.centerY - maxRadius * Math.cos(rad);
 
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
+    ctx.moveTo(vt.centerX, vt.centerY);
     ctx.lineTo(endX, endY);
     ctx.stroke();
 }
 
-function drawTargetPositions(ctx, centerX, centerY, scale, rotation, results) {
-    const p1 = nmToCanvas(results.pos1.x, results.pos1.y, centerX, centerY, scale, rotation);
-    const p2 = nmToCanvas(results.pos2.x, results.pos2.y, centerX, centerY, scale, rotation);
+function drawTargetPositions(ctx, vt, results) {
+    const p1 = vt.toCanvas(results.pos1.x, results.pos1.y);
+    const p2 = vt.toCanvas(results.pos2.x, results.pos2.y);
 
     ctx.fillStyle = COLORS.target;
     ctx.beginPath();
@@ -51,139 +57,89 @@ function drawTargetPositions(ctx, centerX, centerY, scale, rotation, results) {
     drawArrowHead(ctx, p1.x, p1.y, p2.x, p2.y, COLORS.target, 10);
 }
 
-function drawCPA(ctx, centerX, centerY, scale, rotation, results) {
-    if (results.relative.speed <= 0.1) return;
+function drawCPAMarker(ctx, vt, cpaPoint, label, alpha = 1) {
+    const cpa = vt.toCanvas(cpaPoint.x, cpaPoint.y);
 
-    const cpa = nmToCanvas(results.cpa.point.x, results.cpa.point.y, centerX, centerY, scale, rotation);
+    ctx.globalAlpha = alpha;
 
     ctx.fillStyle = COLORS.cpa;
     ctx.beginPath();
-    ctx.arc(cpa.x, cpa.y, 5, 0, Math.PI * 2);
+    ctx.arc(cpa.x, cpa.y, alpha < 1 ? 6 : 5, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = COLORS.cpa;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = alpha < 1 ? 1.5 : 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
+    ctx.moveTo(vt.centerX, vt.centerY);
     ctx.lineTo(cpa.x, cpa.y);
     ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.fillStyle = COLORS.cpa;
-    ctx.font = 'bold 12px Share Tech Mono';
+    ctx.font = `bold ${alpha < 1 ? 11 : 12}px Share Tech Mono`;
     ctx.textAlign = 'left';
-    ctx.fillText('CPA', cpa.x + 12, cpa.y - 12);
+    ctx.fillText(label, cpa.x + 12, cpa.y - 12);
+
+    ctx.globalAlpha = 1;
 }
 
-function drawPredictionLine(ctx, centerX, centerY, scale, rotation, results) {
-    if (results.relative.speed <= 0.1) return;
+function drawPredictionDash(ctx, vt, fromPoint, toPoint, alpha = 1) {
+    const from = vt.toCanvas(fromPoint.x, fromPoint.y);
+    const pred = vt.toCanvas(toPoint.x, toPoint.y);
 
-    const p2 = nmToCanvas(results.pos2.x, results.pos2.y, centerX, centerY, scale, rotation);
-    const pred = nmToCanvas(results.prediction.x, results.prediction.y, centerX, centerY, scale, rotation);
+    ctx.globalAlpha = alpha;
 
     ctx.strokeStyle = COLORS.target;
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(p2.x, p2.y);
+    ctx.moveTo(from.x, from.y);
     ctx.lineTo(pred.x, pred.y);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.strokeStyle = COLORS.target;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(pred.x, pred.y, 4, 0, Math.PI * 2);
-    ctx.stroke();
-}
-
-function drawAvoidancePrediction(ctx, centerX, centerY, scale, rotation, avoidanceResults) {
-    if (avoidanceResults.relative.speed <= 0.1) return;
-
-    const mp = nmToCanvas(avoidanceResults.maneuverPoint.x, avoidanceResults.maneuverPoint.y, centerX, centerY, scale, rotation);
-    const pred = nmToCanvas(avoidanceResults.prediction.x, avoidanceResults.prediction.y, centerX, centerY, scale, rotation);
-
-    ctx.globalAlpha = 0.45;
-
-    ctx.strokeStyle = COLORS.target;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(mp.x, mp.y);
-    ctx.lineTo(pred.x, pred.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.strokeStyle = COLORS.target;
-    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(pred.x, pred.y, 4, 0, Math.PI * 2);
     ctx.stroke();
 
-    ctx.globalAlpha = 1.0;
+    ctx.globalAlpha = 1;
 }
-
-function drawAvoidanceCPA(ctx, centerX, centerY, scale, rotation, avoidanceResults) {
-    if (avoidanceResults.relative.speed <= 0.1) return;
-
-    const cpa = nmToCanvas(avoidanceResults.cpa.point.x, avoidanceResults.cpa.point.y, centerX, centerY, scale, rotation);
-
-    ctx.globalAlpha = 0.45;
-
-    ctx.fillStyle = COLORS.cpa;
-    ctx.beginPath();
-    ctx.arc(cpa.x, cpa.y, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = COLORS.cpa;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(cpa.x, cpa.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = COLORS.cpa;
-    ctx.font = 'bold 11px Share Tech Mono';
-    ctx.textAlign = 'left';
-    ctx.fillText('CPA\'', cpa.x + 10, cpa.y - 10);
-
-    ctx.globalAlpha = 1.0;
-}
-
-const RADAR_RING_COUNT = 4;
-const NM_PER_RING = 5;
 
 export function resizeCanvas(canvas) {
-    canvas._logical = setupCanvas(canvas);
+    setupCanvas(canvas);
 }
 
 export function renderCanvas(canvas, model, results, avoidanceResults) {
     const ctx = canvas.getContext('2d');
-    const { width, height } = canvas._logical;
+    const { width, height } = getCanvasLogical(canvas);
     const centerX = width / 2;
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2 - 40;
-    const scale = maxRadius / 20;
+    const { range, rings } = RADAR_RANGES[model.radarRangeIndex];
+    const scale = maxRadius / range;
     const rotation = model.orientationMode === 'head-up' ? model.ownShip.course : 0;
+    const vt = createViewTransform(centerX, centerY, scale, rotation);
 
     ctx.fillStyle = COLORS.background;
     ctx.fillRect(0, 0, width, height);
 
-    const radarRingLabel = (i) => `${i * NM_PER_RING} NM`;
-    drawPolarGrid(ctx, centerX, centerY, maxRadius, RADAR_RING_COUNT, radarRingLabel);
-    drawHeadingLine(ctx, centerX, centerY, maxRadius, rotation, model.ownShip.course);
+    const nmPerRing = range / rings;
+    const radarRingLabel = (i) => `${(i * nmPerRing) % 1 === 0 ? (i * nmPerRing) : (i * nmPerRing).toFixed(1)} NM`;
+    drawPolarGrid(ctx, centerX, centerY, maxRadius, rings, radarRingLabel);
+    drawHeadingLine(ctx, vt, maxRadius, model.ownShip.course);
 
     if (results) {
-        drawTargetPositions(ctx, centerX, centerY, scale, rotation, results);
-        drawPredictionLine(ctx, centerX, centerY, scale, rotation, results);
-        drawCPA(ctx, centerX, centerY, scale, rotation, results);
+        drawTargetPositions(ctx, vt, results);
+        if (results.relative.speed > MIN_MOVEMENT_SPEED) {
+            drawPredictionDash(ctx, vt, results.pos2, results.prediction);
+            drawCPAMarker(ctx, vt, results.cpa.point, 'CPA');
+        }
 
-        if (avoidanceResults && avoidanceResults.maneuverNeeded !== false) {
-            drawAvoidancePrediction(ctx, centerX, centerY, scale, rotation, avoidanceResults);
-            drawAvoidanceCPA(ctx, centerX, centerY, scale, rotation, avoidanceResults);
+        if (avoidanceResults && avoidanceResults.maneuverNeeded !== false
+            && avoidanceResults.relative.speed > MIN_MOVEMENT_SPEED) {
+            drawPredictionDash(ctx, vt, avoidanceResults.maneuverPoint, avoidanceResults.prediction, 0.45);
+            drawCPAMarker(ctx, vt, avoidanceResults.cpa.point, 'CPA\'', 0.45);
         }
     }
 }

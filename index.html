@@ -11,6 +11,7 @@
         <header>
             <h1>RADAR PLOTTING</h1>
             <div class="subtitle">CCS Groupe Lémanique</div>
+            <button class="copy-link-btn" id="copyLinkBtn" title="Copier le lien">Copier le lien</button>
         </header>
 
         <div class="main-grid">
@@ -63,7 +64,7 @@
                     </div>
                     <div class="time-input-wrapper">
                         <label>Heure (HH:MM)</label>
-                        <input type="time" id="time1" value="12:00" step="60">
+                        <input type="time" id="time1" value="12:00" step="60" lang="fr">
                     </div>
                 </div>
 
@@ -81,12 +82,20 @@
                     </div>
                     <div class="time-input-wrapper">
                         <label>Heure (HH:MM)</label>
-                        <input type="time" id="time2" value="12:12" step="60">
+                        <input type="time" id="time2" value="12:12" step="60" lang="fr">
                     </div>
                 </div>
             </div>
 
             <div class="radar-canvas-container">
+                <h2 class="panel-title">
+                    <span>Radar</span>
+                    <span class="scale-control">
+                        <button class="scale-btn" id="radarRangeDown">&minus;</button>
+                        <span class="scale-label" id="radarRangeLabel">24 NM</span>
+                        <button class="scale-btn" id="radarRangeUp">+</button>
+                    </span>
+                </h2>
                 <canvas id="radarCanvas"></canvas>
                 <div class="legend">
                     <div class="legend-item">
@@ -108,12 +117,23 @@
             </div>
 
             <div class="triangle-canvas-container">
-                <div id="avoidanceOverlay" class="avoidance-overlay" style="display:none;">
-                    <label>Dist. &eacute;vitement (NM)</label>
-                    <input type="number" id="avoidanceDistance" value="3" min="0.5" max="20" step="0.5">
-                    <button id="avoidanceExit" class="avoidance-exit-btn">&times;</button>
-                </div>
+                <h2 class="panel-title">
+                    <span>Triangle des Vitesses</span>
+                    <span class="scale-control">
+                        <button class="scale-btn" id="scaleDown">&minus;</button>
+                        <span class="scale-label" id="scaleLabel">&Eacute;chelle : 1</span>
+                        <button class="scale-btn" id="scaleUp">+</button>
+                    </span>
+                </h2>
                 <canvas id="triangleCanvas"></canvas>
+                <div id="avoidanceBar" class="avoidance-bar">
+                    <span id="avoidanceHint" class="avoidance-hint">Glisser le vecteur propre pour planifier l'&eacute;vitement</span>
+                    <span id="avoidanceControls" class="avoidance-controls" style="display:none;">
+                        <label>Dist. &eacute;vitement (NM)</label>
+                        <input type="number" id="avoidanceDistance" value="3" min="0.5" max="20" step="0.5">
+                        <button id="avoidanceExit" class="avoidance-exit-btn">&times;</button>
+                    </span>
+                </div>
                 <div class="legend">
                     <div class="legend-item">
                         <div class="legend-color" style="background: #00ff41;"></div>
@@ -129,11 +149,6 @@
                         </svg>
                         <span>Vecteur Vrai</span>
                     </div>
-                </div>
-                <div class="scale-control">
-                    <button class="scale-btn" id="scaleDown">&minus;</button>
-                    <span class="scale-label" id="scaleLabel">&Eacute;chelle : 1</span>
-                    <button class="scale-btn" id="scaleUp">+</button>
                 </div>
             </div>
 

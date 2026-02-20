@@ -1,3 +1,4 @@
+import { MIN_MOVEMENT_SPEED, formatMinutes } from './constants.js';
 import { trueToDisplay } from './bearings.js';
 
 function setInputValue(id, value) {
@@ -41,14 +42,14 @@ function renderResults(results) {
     setResult('targetCourseTrue', results.trueTarget.course.toFixed(1) + '\u00B0');
     setResult('targetSpeedTrue', results.trueTarget.speed.toFixed(1) + ' kts');
 
-    if (results.relative.speed > 0.1) {
+    if (results.relative.speed > MIN_MOVEMENT_SPEED) {
         const cpaEl = document.getElementById('cpaDistance');
         cpaEl.textContent = results.cpa.distance.toFixed(2) + ' NM';
         cpaEl.className = cpaClass(results.cpa.distance);
 
         const tcpaEl = document.getElementById('tcpaTime');
         const minutes = results.cpa.tcpaMinutes;
-        tcpaEl.textContent = minutes.toFixed(1) + ' min';
+        tcpaEl.textContent = formatMinutes(minutes);
         tcpaEl.className = tcpaClass(minutes, results.cpa.distance);
 
         setResult('cpaBearing', results.cpa.bearing.toFixed(1) + '\u00B0');
@@ -87,7 +88,7 @@ function renderAvoidanceResults(avoidance, avoidanceResults) {
 
     const tcpaEl = document.getElementById('avoidTcpaTime');
     const minutes = avoidanceResults.cpa.tcpaMinutes;
-    tcpaEl.textContent = minutes.toFixed(1) + ' min';
+    tcpaEl.textContent = formatMinutes(minutes);
     tcpaEl.className = tcpaClass(minutes, avoidanceResults.cpa.distance);
 }
 
@@ -114,6 +115,13 @@ export function renderForm(model, results, avoidanceResults) {
     document.querySelectorAll('.target-btn').forEach((btn, i) => {
         btn.classList.toggle('active', i === currentTargetIndex);
     });
+
+    const avoidActive = model.avoidance.active;
+    document.getElementById('avoidanceHint').style.display = avoidActive ? 'none' : '';
+    document.getElementById('avoidanceControls').style.display = avoidActive ? 'flex' : 'none';
+    if (avoidActive) {
+        setInputValue('avoidanceDistance', model.avoidance.distance);
+    }
 
     renderResults(results);
     renderAvoidanceResults(model.avoidance, avoidanceResults);

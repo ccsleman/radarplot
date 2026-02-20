@@ -1,19 +1,20 @@
 import { createModel } from './model.js';
 import { displayToTrue } from './bearings.js';
-import { computeResults, computeAvoidanceResults } from './calculator.js';
+import { computeTargetTracking, computeAvoidanceWithFallback } from './calculator.js';
+import { RADAR_RANGES } from './draw.js';
 import { renderForm } from './view-form.js';
 import { renderCanvas, resizeCanvas } from './view-canvas.js';
-import { renderTriangle, resizeTriangleCanvas, bestFitScaleIndex, scaleLabel } from './view-triangle.js';
-import { bearingToCanvasOffset as bearingToCanvasOffsetImport } from './draw.js';
+import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, setupTriangleInteraction } from './view-triangle.js';
 import { resizeAnimationCanvas, updateAnimation, setAnimationControls, togglePlayback, seekTo } from './view-animation.js';
+import { applyFragment, syncFragmentToModel } from './fragment.js';
 
 const model = createModel();
+applyFragment(model);
 const radarCanvas = document.getElementById('radarCanvas');
 const triangleCanvas = document.getElementById('triangleCanvas');
 const animationCanvas = document.getElementById('animationCanvas');
 const scaleLabelEl = document.getElementById('scaleLabel');
-const avoidanceOverlay = document.getElementById('avoidanceOverlay');
-const avoidanceDistInput = document.getElementById('avoidanceDistance');
+const radarRangeLabelEl = document.getElementById('radarRangeLabel');
 
 const animPlayBtn = document.getElementById('animPlayBtn');
 const animSlider = document.getElementById('animSlider');
@@ -24,48 +25,21 @@ animPlayBtn.addEventListener('click', togglePlayback);
 animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
 
 function render() {
-    const results = computeResults(model.currentTarget, model.ownShip);
-
-    let avoidanceResults = null;
-    if (model.avoidance.active && results) {
-        const clampedDist = Math.min(model.avoidance.distance, model.currentTarget.distance2);
-        avoidanceResults = computeAvoidanceResults(
-            results,
-            model.avoidance.course,
-            model.avoidance.speed,
-            clampedDist
-        );
-        if (!avoidanceResults) {
-            avoidanceResults = computeAvoidanceResults(
-                results,
-                model.avoidance.course,
-                model.avoidance.speed,
-                model.currentTarget.distance2
-            );
-        }
-    }
-
-    if (!model.triangleScaleManual && results) {
-        const maxSpeed = Math.max(model.ownShip.speed, results.trueTarget.speed);
-        model.triangleScaleIndex = bestFitScaleIndex(maxSpeed);
-    }
+    const results = computeTargetTracking(model.currentTarget, model.ownShip);
+    const avoidanceResults = computeAvoidanceWithFallback(results, model.avoidance, model.currentTarget.distance2);
+    model.autoFitTriangleScale(results);
+    model.autoFitRadarRange(results);
 
     renderForm(model, results, avoidanceResults);
     renderCanvas(radarCanvas, model, results, avoidanceResults);
     renderTriangle(triangleCanvas, model, results, avoidanceResults);
     updateAnimation(animationCanvas, model, results, avoidanceResults);
-
-    if (model.triangleScaleIndex !== null) {
-        scaleLabelEl.textContent = scaleLabel(model.triangleScaleIndex);
-    }
-
-    avoidanceOverlay.style.display = model.avoidance.active ? 'flex' : 'none';
-    if (model.avoidance.active && document.activeElement !== avoidanceDistInput) {
-        avoidanceDistInput.value = model.avoidance.distance;
-    }
+    renderScaleLabel(scaleLabelEl, model.triangleScaleIndex);
+    radarRangeLabelEl.textContent = RADAR_RANGES[model.radarRangeIndex].label;
 }
 
 model.subscribe(render);
+model.subscribe(() => syncFragmentToModel(model));
 
 function bindInput(id, handler) {
     document.getElementById(id).addEventListener('input', handler);
@@ -99,105 +73,24 @@ document.querySelectorAll('.target-btn').forEach((btn, i) => {
 document.getElementById('scaleUp').addEventListener('click', () => model.stepTriangleScale(1));
 document.getElementById('scaleDown').addEventListener('click', () => model.stepTriangleScale(-1));
 
+document.getElementById('radarRangeUp').addEventListener('click', () => model.stepRadarRange(1));
+document.getElementById('radarRangeDown').addEventListener('click', () => model.stepRadarRange(-1));
+
 bindInput('avoidanceDistance', (e) => model.setAvoidanceDistance(parseFloat(e.target.value) || 3));
 document.getElementById('avoidanceExit').addEventListener('click', () => model.exitAvoidance());
 
-/* ── Drag interaction on triangle canvas ── */
+setupTriangleInteraction(triangleCanvas, model);
 
-const RAD_TO_DEG = 180 / Math.PI;
-const HIT_RADIUS = 20;
-let dragging = false;
+/* ── Copy link ── */
 
-function canvasCoords(e) {
-    const rect = triangleCanvas.getBoundingClientRect();
-    if (e.touches) {
-        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-    }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-}
-
-function canvasToCourseSpeed(mx, my) {
-    const st = triangleCanvas._triangleState;
-    if (!st) return null;
-    const relX = mx - st.centerX;
-    const relY = my - st.centerY;
-    const c = st.rotation * Math.PI / 180;
-    const cosC = Math.cos(c);
-    const sinC = Math.sin(c);
-    const nmX = (relX * cosC - relY * sinC) / st.pixelsPerKnot;
-    const nmY = (-relX * sinC - relY * cosC) / st.pixelsPerKnot;
-    const course = (Math.atan2(nmX, nmY) * RAD_TO_DEG + 360) % 360;
-    const speed = Math.max(0, Math.sqrt(nmX * nmX + nmY * nmY));
-    return { course, speed };
-}
-
-function isNearTip(mx, my) {
-    const st = triangleCanvas._triangleState;
-    if (!st) return false;
-    const dx = mx - st.tipX;
-    const dy = my - st.tipY;
-    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
-}
-
-function onPointerDown(e) {
-    const pos = canvasCoords(e);
-    const st = triangleCanvas._triangleState;
-    if (!st) return;
-
-    const checkTip = model.avoidance.active
-        ? isNearAvoidanceTip(pos.x, pos.y, st)
-        : isNearTip(pos.x, pos.y);
-    if (!checkTip) return;
-
-    dragging = true;
-    triangleCanvas.style.cursor = 'grabbing';
-    if (e.cancelable) e.preventDefault();
-
-    if (!model.avoidance.active) {
-        const cs = canvasToCourseSpeed(pos.x, pos.y);
-        if (cs) model.setAvoidance(cs.course, cs.speed);
-    }
-}
-
-function isNearAvoidanceTip(mx, my, st) {
-    const offset = bearingToCanvasOffsetImport(model.avoidance.course, model.avoidance.speed, st.pixelsPerKnot, st.rotation);
-    const tipX = st.centerX + offset.dx;
-    const tipY = st.centerY + offset.dy;
-    const dx = mx - tipX;
-    const dy = my - tipY;
-    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
-}
-
-function onPointerMove(e) {
-    const pos = canvasCoords(e);
-    if (dragging) {
-        if (e.cancelable) e.preventDefault();
-        const cs = canvasToCourseSpeed(pos.x, pos.y);
-        if (cs) model.setAvoidance(cs.course, cs.speed);
-        return;
-    }
-    const st = triangleCanvas._triangleState;
-    if (!st) return;
-    const nearTip = model.avoidance.active
-        ? isNearAvoidanceTip(pos.x, pos.y, st)
-        : isNearTip(pos.x, pos.y);
-    triangleCanvas.style.cursor = nearTip ? 'grab' : 'crosshair';
-}
-
-function onPointerUp() {
-    if (dragging) {
-        dragging = false;
-        triangleCanvas.style.cursor = 'crosshair';
-    }
-}
-
-triangleCanvas.addEventListener('mousedown', onPointerDown);
-window.addEventListener('mousemove', onPointerMove);
-window.addEventListener('mouseup', onPointerUp);
-
-triangleCanvas.addEventListener('touchstart', onPointerDown, { passive: false });
-window.addEventListener('touchmove', onPointerMove, { passive: false });
-window.addEventListener('touchend', onPointerUp);
+document.getElementById('copyLinkBtn').addEventListener('click', () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        const btn = document.getElementById('copyLinkBtn');
+        const original = btn.textContent;
+        btn.textContent = 'Lien copié !';
+        setTimeout(() => { btn.textContent = original; }, 2000);
+    });
+});
 
 /* ── Resize / Init ── */
 

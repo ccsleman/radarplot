@@ -1,4 +1,15 @@
+import { DEG_TO_RAD } from './constants.js';
 import { polarToCartesian } from './calculator.js';
+
+const canvasLogical = new WeakMap();
+
+export function setCanvasLogical(canvas, logical) {
+    canvasLogical.set(canvas, logical);
+}
+
+export function getCanvasLogical(canvas) {
+    return canvasLogical.get(canvas);
+}
 
 export const NICE_SCALES = [
     { value: 1/4, label: '1/4' },
@@ -9,8 +20,18 @@ export const NICE_SCALES = [
     { value: 3,   label: '3' },
     { value: 4,   label: '4' },
 ];
-export const RING_COUNT = 4;
+export const RING_COUNT = 5;
 export const BASE_KTS_PER_RING = 5;
+export const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
+
+export const RADAR_RANGES = [
+    { range: 3,  rings: 3, label: '3 NM' },
+    { range: 6,  rings: 3, label: '6 NM' },
+    { range: 12, rings: 4, label: '12 NM' },
+    { range: 24, rings: 4, label: '24 NM' },
+    { range: 48, rings: 4, label: '48 NM' },
+];
+export const DEFAULT_RADAR_RANGE_INDEX = 3;
 
 export const COLORS = {
     background: '#0a1929',
@@ -23,17 +44,16 @@ export const COLORS = {
     trueVector: '#ff3b3b',
     cpa: '#a855f7',
     white: '#ffffff',
-    triangleTitle: 'rgba(148, 184, 216, 0.8)'
 };
 
 export function bearingToCanvasOffset(bearingDeg, magnitude, pixelScale, rotationDeg) {
     const nm = polarToCartesian(bearingDeg, magnitude);
-    const c = rotationDeg * Math.PI / 180;
+    const c = rotationDeg * DEG_TO_RAD;
     const cosC = Math.cos(c);
     const sinC = Math.sin(c);
     return {
         dx: (nm.x * cosC - nm.y * sinC) * pixelScale,
-        dy: -(nm.y * cosC + nm.x * sinC) * pixelScale
+        dy: -(nm.y * cosC + nm.x * sinC) * pixelScale,
     };
 }
 
@@ -62,10 +82,16 @@ export function setupCanvas(canvas) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    return { width: cssWidth, height: cssHeight };
+    const logical = { width: cssWidth, height: cssHeight };
+    setCanvasLogical(canvas, logical);
+    return logical;
 }
 
-export function drawPolarGrid(ctx, centerX, centerY, maxRadius, ringCount, ringLabelFn) {
+export function drawPolarGrid(ctx, centerX, centerY, maxRadius, ringCount, ringLabelFn, options = {}) {
+    const { minorAngleStep } = options;
+    const innerRadius = minorAngleStep ? maxRadius / ringCount : 0;
+    const radialStep = minorAngleStep || 30;
+
     ctx.strokeStyle = COLORS.grid;
     ctx.lineWidth = 1;
 
@@ -81,21 +107,22 @@ export function drawPolarGrid(ctx, centerX, centerY, maxRadius, ringCount, ringL
         ctx.fillText(ringLabelFn(i), centerX + 5, centerY - radius + 5);
     }
 
-    for (let angle = 0; angle < 360; angle += 30) {
-        const rad = angle * Math.PI / 180;
+    for (let angle = 0; angle < 360; angle += radialStep) {
+        const rad = angle * DEG_TO_RAD;
         const dx = Math.sin(rad);
         const dy = -Math.cos(rad);
-
-        ctx.strokeStyle = COLORS.grid;
         ctx.beginPath();
-        ctx.moveTo(centerX, centerY);
+        ctx.moveTo(centerX + innerRadius * dx, centerY + innerRadius * dy);
         ctx.lineTo(centerX + maxRadius * dx, centerY + maxRadius * dy);
         ctx.stroke();
+    }
 
+    ctx.fillStyle = COLORS.angleLabel;
+    ctx.font = '12px Orbitron';
+    ctx.textAlign = 'center';
+    for (let angle = 0; angle < 360; angle += 30) {
+        const rad = angle * DEG_TO_RAD;
         const labelR = maxRadius + 20;
-        ctx.fillStyle = COLORS.angleLabel;
-        ctx.font = '12px Orbitron';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${angle}\u00B0`, centerX + labelR * dx, centerY + labelR * dy);
+        ctx.fillText(`${angle}\u00B0`, centerX + labelR * Math.sin(rad), centerY - labelR * Math.cos(rad));
     }
 }
