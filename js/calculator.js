@@ -1,5 +1,4 @@
-const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
+import { DEG_TO_RAD, RAD_TO_DEG, normalizeBearing } from './constants.js';
 
 export function timeToMinutes(timeString) {
     if (!timeString) return NaN;
@@ -17,7 +16,7 @@ export function polarToCartesian(bearingDeg, distance) {
 
 export function cartesianToPolar(x, y) {
     return {
-        bearing: (Math.atan2(x, y) * RAD_TO_DEG + 360) % 360,
+        bearing: normalizeBearing(Math.atan2(x, y) * RAD_TO_DEG),
         distance: Math.sqrt(x * x + y * y)
     };
 }
@@ -25,10 +24,10 @@ export function cartesianToPolar(x, y) {
 export function relativeMotion(pos1, pos2, deltaTimeHours) {
     const dx = pos2.x - pos1.x;
     const dy = pos2.y - pos1.y;
-    const displacement = Math.sqrt(dx * dx + dy * dy);
+    const polar = cartesianToPolar(dx, dy);
     return {
-        course: (Math.atan2(dx, dy) * RAD_TO_DEG + 360) % 360,
-        speed: displacement / deltaTimeHours,
+        course: polar.bearing,
+        speed: polar.distance / deltaTimeHours,
         dx,
         dy
     };
@@ -59,27 +58,32 @@ export function trueMotion(ownCourse, ownSpeed, relativeCourse, relativeSpeed) {
     return cartesianToPolar(own.x + rel.x, own.y + rel.y);
 }
 
+const ASPECT_SECTORS = [
+    { maxAngle: 2,     label: () => "De l'avant - (rouge et vert)" },
+    { maxAngle: 22.5,  label: (sl) => `De l'avant - ${sl}` },
+    { maxAngle: 67.5,  label: (sl) => `Sur l'avant du travers - ${sl}` },
+    { maxAngle: 112.5, label: (sl) => `Par le travers - ${sl}` },
+    { maxAngle: 157.5, label: (st) => `Sur l'arri\u00e8re du travers - ${st}` },
+    { maxAngle: 178,   label: (st) => `De l'arri\u00e8re - ${st}` },
+    { maxAngle: Infinity, label: () => "De l'arri\u00e8re - (blanc)" },
+];
+
 export function formatAspect(aspectDeg) {
-    const a = ((aspectDeg % 360) + 360) % 360;
+    const a = normalizeBearing(aspectDeg);
     const angle = a <= 180 ? a : 360 - a;
     const sideName = a <= 180 ? 'Tribord' : 'B\u00e2bord';
     const sidelight = a <= 180 ? `${sideName} (vert)` : `${sideName} (rouge)`;
     const sternlight = `${sideName} (blanc)`;
 
-    if (angle < 2)               return "De l'avant - (rouge et vert)";
-    if (angle < 22.5)            return `De l'avant - ${sidelight}`;
-    if (angle < 67.5)            return `Sur l'avant du travers - ${sidelight}`;
-    if (angle < 112.5)           return `Par le travers - ${sidelight}`;
-    if (angle < 157.5)           return `Sur l'arri\u00e8re du travers - ${sternlight}`;
-    if (angle < 178)             return `De l'arri\u00e8re - ${sternlight}`;
-    return "De l'arri\u00e8re - (blanc)";
+    for (const sector of ASPECT_SECTORS) {
+        if (angle < sector.maxAngle) {
+            const light = sector.maxAngle <= 112.5 ? sidelight : sternlight;
+            return sector.label(light);
+        }
+    }
 }
 
-export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceDistance) {
-    const { pos2, relative } = results;
-
-    const dx = relative.dx;
-    const dy = relative.dy;
+export function findManeuverPoint(pos2, dx, dy, avoidanceDistance) {
     const lenSq = dx * dx + dy * dy;
     if (lenSq === 0) return null;
 
@@ -98,42 +102,61 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
         else if (s2 >= -1e-9) s = Math.max(0, s2);
     }
 
-    const maneuverPoint = {
-        x: pos2.x + s * dx,
-        y: pos2.y + s * dy
+    return {
+        maneuverNeeded,
+        s,
+        point: {
+            x: pos2.x + s * dx,
+            y: pos2.y + s * dy
+        }
     };
+}
 
-    const trueVel = polarToCartesian(results.trueTarget.course, results.trueTarget.speed);
+export function computeNewRelativeMotion(trueTargetCourse, trueTargetSpeed, newCourse, newSpeed) {
+    const trueVel = polarToCartesian(trueTargetCourse, trueTargetSpeed);
     const newOwnVel = polarToCartesian(newCourse, newSpeed);
-    const newRelVel = { x: trueVel.x - newOwnVel.x, y: trueVel.y - newOwnVel.y };
-    const newRelPolar = cartesianToPolar(newRelVel.x, newRelVel.y);
+    const relVel = { x: trueVel.x - newOwnVel.x, y: trueVel.y - newOwnVel.y };
+    const polar = cartesianToPolar(relVel.x, relVel.y);
+    return {
+        course: polar.bearing,
+        speed: polar.distance,
+        dx: relVel.x,
+        dy: relVel.y
+    };
+}
 
-    const rawCpa = closestPointOfApproach(maneuverPoint, newRelVel.x, newRelVel.y);
+export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceDistance) {
+    const { pos2, relative } = results;
+
+    const maneuver = findManeuverPoint(pos2, relative.dx, relative.dy, avoidanceDistance);
+    if (!maneuver) return null;
+
+    const newRel = computeNewRelativeMotion(
+        results.trueTarget.course, results.trueTarget.speed, newCourse, newSpeed
+    );
+
+    const rawCpa = closestPointOfApproach(maneuver.point, newRel.dx, newRel.dy);
     const clampedT = Math.max(0, rawCpa.t);
     const cpaPoint = clampedT === rawCpa.t
         ? rawCpa.point
-        : { x: maneuverPoint.x, y: maneuverPoint.y };
+        : { x: maneuver.point.x, y: maneuver.point.y };
     const cpaDistance = clampedT === rawCpa.t
         ? rawCpa.distance
-        : Math.sqrt(maneuverPoint.x * maneuverPoint.x + maneuverPoint.y * maneuverPoint.y);
+        : Math.sqrt(maneuver.point.x * maneuver.point.x + maneuver.point.y * maneuver.point.y);
     const cpaBearing = cartesianToPolar(cpaPoint.x, cpaPoint.y).bearing;
 
+    const lenSq = relative.dx * relative.dx + relative.dy * relative.dy;
     const p1p2Dist = Math.sqrt(lenSq);
     const deltaTime = p1p2Dist / relative.speed;
-    const timeToManeuverHours = s * deltaTime;
+    const timeToManeuverHours = maneuver.s * deltaTime;
     const totalTcpaHours = timeToManeuverHours + clampedT;
     const remainingTime = Math.max(0, 1 - timeToManeuverHours);
 
     return {
-        maneuverNeeded,
-        maneuverPoint,
+        maneuverNeeded: maneuver.maneuverNeeded,
+        maneuverPoint: maneuver.point,
         timeToManeuverHours,
-        relative: {
-            course: newRelPolar.bearing,
-            speed: newRelPolar.distance,
-            dx: newRelVel.x,
-            dy: newRelVel.y
-        },
+        relative: newRel,
         cpa: {
             distance: cpaDistance,
             point: cpaPoint,
@@ -141,8 +164,8 @@ export function computeAvoidanceResults(results, newCourse, newSpeed, avoidanceD
             tcpaMinutes: totalTcpaHours * 60
         },
         prediction: {
-            x: maneuverPoint.x + newRelVel.x * remainingTime,
-            y: maneuverPoint.y + newRelVel.y * remainingTime
+            x: maneuver.point.x + newRel.dx * remainingTime,
+            y: maneuver.point.y + newRel.dy * remainingTime
         }
     };
 }
@@ -154,7 +177,7 @@ export function computeAvoidanceWithFallback(results, avoidance, targetDistance2
         || computeAvoidanceResults(results, avoidance.course, avoidance.speed, targetDistance2);
 }
 
-export function computeResults(target, ownShip) {
+export function computeTargetTracking(target, ownShip) {
     const pos1 = polarToCartesian(target.bearing1, target.distance1);
     const pos2 = polarToCartesian(target.bearing2, target.distance2);
 
@@ -169,8 +192,8 @@ export function computeResults(target, ownShip) {
     const tcpaHours = tcpaFromObservation(cpa.t, deltaTime);
     const trueTarget = trueMotion(ownShip.course, ownShip.speed, relative.course, relative.speed);
     const cpaBearing = cartesianToPolar(cpa.point.x, cpa.point.y).bearing;
-    const bearingTargetToOwnAtP2 = (target.bearing2 + 180) % 360;
-    const aspect = (bearingTargetToOwnAtP2 - trueTarget.bearing + 360) % 360;
+    const bearingTargetToOwnAtP2 = normalizeBearing(target.bearing2 + 180);
+    const aspect = normalizeBearing(bearingTargetToOwnAtP2 - trueTarget.bearing);
 
     return {
         pos1,

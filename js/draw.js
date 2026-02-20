@@ -1,4 +1,15 @@
+import { DEG_TO_RAD } from './constants.js';
 import { polarToCartesian } from './calculator.js';
+
+const canvasLogical = new WeakMap();
+
+export function setCanvasLogical(canvas, logical) {
+    canvasLogical.set(canvas, logical);
+}
+
+export function getCanvasLogical(canvas) {
+    return canvasLogical.get(canvas);
+}
 
 export const NICE_SCALES = [
     { value: 1/4, label: '1/4' },
@@ -28,7 +39,7 @@ export const COLORS = {
 
 export function bearingToCanvasOffset(bearingDeg, magnitude, pixelScale, rotationDeg) {
     const nm = polarToCartesian(bearingDeg, magnitude);
-    const c = rotationDeg * Math.PI / 180;
+    const c = rotationDeg * DEG_TO_RAD;
     const cosC = Math.cos(c);
     const sinC = Math.sin(c);
     return {
@@ -62,7 +73,9 @@ export function setupCanvas(canvas) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    return { width: cssWidth, height: cssHeight };
+    const logical = { width: cssWidth, height: cssHeight };
+    setCanvasLogical(canvas, logical);
+    return logical;
 }
 
 export function drawPolarGrid(ctx, centerX, centerY, maxRadius, ringCount, ringLabelFn) {
@@ -82,7 +95,7 @@ export function drawPolarGrid(ctx, centerX, centerY, maxRadius, ringCount, ringL
     }
 
     for (let angle = 0; angle < 360; angle += 30) {
-        const rad = angle * Math.PI / 180;
+        const rad = angle * DEG_TO_RAD;
         const dx = Math.sin(rad);
         const dy = -Math.cos(rad);
 

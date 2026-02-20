@@ -1,3 +1,4 @@
+import { MIN_MOVEMENT_SPEED } from './constants.js';
 import { trueToDisplay } from './bearings.js';
 
 function setInputValue(id, value) {
@@ -41,7 +42,7 @@ function renderResults(results) {
     setResult('targetCourseTrue', results.trueTarget.course.toFixed(1) + '\u00B0');
     setResult('targetSpeedTrue', results.trueTarget.speed.toFixed(1) + ' kts');
 
-    if (results.relative.speed > 0.1) {
+    if (results.relative.speed > MIN_MOVEMENT_SPEED) {
         const cpaEl = document.getElementById('cpaDistance');
         cpaEl.textContent = results.cpa.distance.toFixed(2) + ' NM';
         cpaEl.className = cpaClass(results.cpa.distance);

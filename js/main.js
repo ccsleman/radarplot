@@ -1,6 +1,6 @@
 import { createModel } from './model.js';
 import { displayToTrue } from './bearings.js';
-import { computeResults, computeAvoidanceWithFallback } from './calculator.js';
+import { computeTargetTracking, computeAvoidanceWithFallback } from './calculator.js';
 import { renderForm } from './view-form.js';
 import { renderCanvas, resizeCanvas } from './view-canvas.js';
 import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, setupTriangleInteraction } from './view-triangle.js';
@@ -21,7 +21,7 @@ animPlayBtn.addEventListener('click', togglePlayback);
 animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
 
 function render() {
-    const results = computeResults(model.currentTarget, model.ownShip);
+    const results = computeTargetTracking(model.currentTarget, model.ownShip);
     const avoidanceResults = computeAvoidanceWithFallback(results, model.avoidance, model.currentTarget.distance2);
     model.autoFitTriangleScale(results);
 

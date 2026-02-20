@@ -1,9 +1,12 @@
+import { DEG_TO_RAD, RAD_TO_DEG, normalizeBearing } from './constants.js';
 import {
     COLORS, NICE_SCALES, RING_COUNT, BASE_KTS_PER_RING,
-    setupCanvas, bearingToCanvasOffset, drawArrowHead, drawPolarGrid
+    setupCanvas, getCanvasLogical, bearingToCanvasOffset, drawArrowHead, drawPolarGrid
 } from './draw.js';
 
 const MAX_CHART_KNOTS = RING_COUNT * BASE_KTS_PER_RING;
+
+let triangleState = null;
 
 function scaleLabel(scaleIndex) {
     return `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
@@ -15,20 +18,24 @@ export function renderScaleLabel(el, scaleIndex) {
     }
 }
 
-function drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation) {
-    if (model.ownShip.speed <= 0) return { x: centerX, y: centerY };
+function createTriangleTransform(centerX, centerY, pixelsPerKnot, rotation) {
+    return { centerX, centerY, pixelsPerKnot, rotation };
+}
 
-    const offset = bearingToCanvasOffset(model.ownShip.course, model.ownShip.speed, pixelsPerKnot, rotation);
-    const endX = centerX + offset.dx;
-    const endY = centerY + offset.dy;
+function drawOwnShipVector(ctx, tt, model) {
+    if (model.ownShip.speed <= 0) return { x: tt.centerX, y: tt.centerY };
+
+    const offset = bearingToCanvasOffset(model.ownShip.course, model.ownShip.speed, tt.pixelsPerKnot, tt.rotation);
+    const endX = tt.centerX + offset.dx;
+    const endY = tt.centerY + offset.dy;
 
     ctx.strokeStyle = COLORS.ownShip;
     ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
+    ctx.moveTo(tt.centerX, tt.centerY);
     ctx.lineTo(endX, endY);
     ctx.stroke();
-    drawArrowHead(ctx, centerX, centerY, endX, endY, COLORS.ownShip, 12);
+    drawArrowHead(ctx, tt.centerX, tt.centerY, endX, endY, COLORS.ownShip, 12);
 
     ctx.fillStyle = COLORS.ownShip;
     ctx.font = 'bold 11px Share Tech Mono';
@@ -38,8 +45,8 @@ function drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation
     return { x: endX, y: endY };
 }
 
-function drawRelativeVector(ctx, fromX, fromY, results, pixelsPerKnot, rotation) {
-    const offset = bearingToCanvasOffset(results.relative.course, results.relative.speed, pixelsPerKnot, rotation);
+function drawRelativeVector(ctx, tt, fromX, fromY, results) {
+    const offset = bearingToCanvasOffset(results.relative.course, results.relative.speed, tt.pixelsPerKnot, tt.rotation);
     const endX = fromX + offset.dx;
     const endY = fromY + offset.dy;
 
@@ -86,13 +93,13 @@ function drawOriginDot(ctx, centerX, centerY) {
 }
 
 export function resizeTriangleCanvas(canvas) {
-    canvas._logical = setupCanvas(canvas);
+    setupCanvas(canvas);
 }
 
-function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidanceResults, pixelsPerKnot, rotation) {
-    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, pixelsPerKnot, rotation);
-    const newOwnEndX = centerX + offset.dx;
-    const newOwnEndY = centerY + offset.dy;
+function drawAvoidanceVectors(ctx, tt, targetEnd, model, avoidanceResults) {
+    const offset = bearingToCanvasOffset(model.avoidance.course, model.avoidance.speed, tt.pixelsPerKnot, tt.rotation);
+    const newOwnEndX = tt.centerX + offset.dx;
+    const newOwnEndY = tt.centerY + offset.dy;
 
     ctx.globalAlpha = 0.4;
 
@@ -100,11 +107,11 @@ function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidance
     ctx.lineWidth = 3;
     ctx.setLineDash([6, 4]);
     ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
+    ctx.moveTo(tt.centerX, tt.centerY);
     ctx.lineTo(newOwnEndX, newOwnEndY);
     ctx.stroke();
     ctx.setLineDash([]);
-    drawArrowHead(ctx, centerX, centerY, newOwnEndX, newOwnEndY, COLORS.ownShip, 10);
+    drawArrowHead(ctx, tt.centerX, tt.centerY, newOwnEndX, newOwnEndY, COLORS.ownShip, 10);
 
     ctx.fillStyle = COLORS.ownShip;
     ctx.font = 'bold 11px Share Tech Mono';
@@ -133,7 +140,6 @@ function drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidance
 
 /* ── Drag interaction ── */
 
-const RAD_TO_DEG = 180 / Math.PI;
 const HIT_RADIUS = 20;
 
 function canvasCoords(canvas, e) {
@@ -147,12 +153,12 @@ function canvasCoords(canvas, e) {
 function canvasToCourseSpeed(st, mx, my) {
     const relX = mx - st.centerX;
     const relY = my - st.centerY;
-    const c = st.rotation * Math.PI / 180;
+    const c = st.rotation * DEG_TO_RAD;
     const cosC = Math.cos(c);
     const sinC = Math.sin(c);
     const nmX = (relX * cosC - relY * sinC) / st.pixelsPerKnot;
     const nmY = (-relX * sinC - relY * cosC) / st.pixelsPerKnot;
-    const course = (Math.atan2(nmX, nmY) * RAD_TO_DEG + 360) % 360;
+    const course = normalizeBearing(Math.atan2(nmX, nmY) * RAD_TO_DEG);
     const speed = Math.max(0, Math.sqrt(nmX * nmX + nmY * nmY));
     return { course, speed };
 }
@@ -177,7 +183,7 @@ export function setupTriangleInteraction(canvas, model) {
 
     function onPointerDown(e) {
         const pos = canvasCoords(canvas, e);
-        const st = canvas._triangleState;
+        const st = triangleState;
         if (!st) return;
 
         const nearTip = model.avoidance.active
@@ -197,7 +203,7 @@ export function setupTriangleInteraction(canvas, model) {
 
     function onPointerMove(e) {
         const pos = canvasCoords(canvas, e);
-        const st = canvas._triangleState;
+        const st = triangleState;
         if (dragging) {
             if (e.cancelable) e.preventDefault();
             if (st) {
@@ -233,7 +239,7 @@ export function setupTriangleInteraction(canvas, model) {
 
 export function renderTriangle(canvas, model, results, avoidanceResults) {
     const ctx = canvas.getContext('2d');
-    const { width, height } = canvas._logical;
+    const { width, height } = getCanvasLogical(canvas);
     const centerX = width / 2;
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2 - 40;
@@ -251,25 +257,26 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
     ctx.fillText('TRIANGLE DES VITESSES', centerX, 25);
 
     if (!results) {
-        canvas._triangleState = null;
+        triangleState = null;
         drawOriginDot(ctx, centerX, centerY);
         return;
     }
 
     const scaleFactor = NICE_SCALES[model.triangleScaleIndex]?.value ?? 1;
     const pixelsPerKnot = scaleFactor * maxRadius / MAX_CHART_KNOTS;
+    const tt = createTriangleTransform(centerX, centerY, pixelsPerKnot, rotation);
 
-    const ownEnd = drawOwnShipVector(ctx, centerX, centerY, model, pixelsPerKnot, rotation);
-    const targetEnd = drawRelativeVector(ctx, ownEnd.x, ownEnd.y, results, pixelsPerKnot, rotation);
+    const ownEnd = drawOwnShipVector(ctx, tt, model);
+    const targetEnd = drawRelativeVector(ctx, tt, ownEnd.x, ownEnd.y, results);
     drawTrueTargetVector(ctx, centerX, centerY, targetEnd, results);
 
     if (model.avoidance.active && avoidanceResults) {
-        drawAvoidanceVectors(ctx, centerX, centerY, targetEnd, model, avoidanceResults, pixelsPerKnot, rotation);
+        drawAvoidanceVectors(ctx, tt, targetEnd, model, avoidanceResults);
     }
 
     drawOriginDot(ctx, centerX, centerY);
 
-    canvas._triangleState = {
+    triangleState = {
         tipX: ownEnd.x,
         tipY: ownEnd.y,
         centerX,
