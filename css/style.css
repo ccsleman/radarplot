@@ -128,14 +128,6 @@ h1 {
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.panel:hover {
-    border-color: var(--grid-blue);
-    box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15),
-        0 0 20px rgba(74, 144, 226, 0.2);
-}
-
 .panel-title {
     font-family: 'Orbitron', sans-serif;
     font-size: 0.7rem;
@@ -198,6 +190,7 @@ input[type="number"] {
     font-family: 'Share Tech Mono', monospace;
     font-size: 1rem;
     transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    touch-action: manipulation;
 }
 
 .time-input-wrapper {
@@ -218,6 +211,7 @@ input[type="time"] {
     font-size: 1rem;
     transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
     color-scheme: dark;
+    touch-action: manipulation;
 }
 
 input[type="number"]:focus,
@@ -250,13 +244,8 @@ button {
     margin-top: 1rem;
     -webkit-user-select: none;
     user-select: none;
-}
-
-button:hover {
-    background: linear-gradient(135deg, var(--radar-green), var(--grid-blue));
-    border-color: var(--radar-green);
-    box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
-    transform: translateY(-2px);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 button:active {
@@ -273,14 +262,6 @@ button:active {
         0 8px 32px rgba(0, 0, 0, 0.5),
         inset 0 0 50px rgba(0, 255, 65, 0.05);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.radar-canvas-container:hover {
-    border-color: var(--grid-blue);
-    box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.5),
-        inset 0 0 50px rgba(0, 255, 65, 0.05),
-        0 0 20px rgba(74, 144, 226, 0.2);
 }
 
 #radarCanvas,
@@ -303,14 +284,6 @@ button:active {
         0 8px 32px rgba(0, 0, 0, 0.5),
         inset 0 0 50px rgba(0, 255, 65, 0.05);
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.triangle-canvas-container:hover {
-    border-color: var(--grid-blue);
-    box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.5),
-        inset 0 0 50px rgba(0, 255, 65, 0.05),
-        0 0 20px rgba(74, 144, 226, 0.2);
 }
 
 .scale-control {
@@ -353,13 +326,6 @@ button:active {
     transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.scale-btn:hover {
-    background: var(--grid-blue);
-    border-color: var(--radar-green);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
-    transform: none;
-}
-
 .results {
     display: grid;
     grid-template-columns: 1fr;
@@ -377,11 +343,6 @@ button:active {
     border-left: 3px solid var(--grid-blue);
     border-radius: 4px;
     transition: background 0.3s ease, border-left-color 0.3s ease, transform 0.3s ease;
-}
-
-.result-item:hover {
-    background: rgba(10, 25, 41, 0.9);
-    border-left-color: var(--radar-green);
 }
 
 .result-label {
@@ -451,11 +412,6 @@ button:active {
     margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-}
-
-.orientation-btn:hover {
-    border-color: var(--grid-blue);
-    transform: translateY(-2px);
 }
 
 .orientation-btn.active {
@@ -549,7 +505,7 @@ button:active {
 .avoidance-controls input[type="number"] {
     width: 3.2rem;
     padding: 0.35rem 0.5rem;
-    font-size: 0.85rem;
+    font-size: 1rem;
     background: rgba(10, 25, 41, 0.8);
     border: 1px solid var(--ocean-light);
     border-radius: 4px;
@@ -577,13 +533,6 @@ button:active {
     line-height: 0;
     text-align: center;
     opacity: 0.6;
-}
-
-.avoidance-exit-btn:hover {
-    opacity: 1;
-    color: var(--warning-red);
-    background: rgba(255, 255, 255, 0.06);
-    transform: none;
 }
 
 .avoidance-divider {
@@ -625,14 +574,6 @@ button:active {
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.animation-panel:hover {
-    border-color: var(--grid-blue);
-    box-shadow:
-        0 12px 48px rgba(0, 0, 0, 0.5),
-        inset 0 0 50px rgba(0, 255, 65, 0.05),
-        0 0 20px rgba(74, 144, 226, 0.2);
-}
-
 #animationCanvas {
     display: block;
     width: 100%;
@@ -668,13 +609,6 @@ button:active {
     transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     -webkit-tap-highlight-color: transparent;
     -webkit-appearance: none;
-}
-
-.anim-play-btn:hover {
-    background: var(--grid-blue);
-    border-color: var(--radar-green);
-    box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
-    transform: none;
 }
 
 .anim-play-btn:focus {
@@ -733,6 +667,80 @@ button:active {
     grid-template-columns: repeat(2, auto);
     justify-content: start;
     gap: 0.8rem 2rem;
+}
+
+/* ── Hover states (pointer devices only) ── */
+
+@media (hover: hover) {
+    .panel:hover {
+        border-color: var(--grid-blue);
+        box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15),
+            0 0 20px rgba(74, 144, 226, 0.2);
+    }
+
+    button:hover {
+        background: linear-gradient(135deg, var(--radar-green), var(--grid-blue));
+        border-color: var(--radar-green);
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .radar-canvas-container:hover {
+        border-color: var(--grid-blue);
+        box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.5),
+            inset 0 0 50px rgba(0, 255, 65, 0.05),
+            0 0 20px rgba(74, 144, 226, 0.2);
+    }
+
+    .triangle-canvas-container:hover {
+        border-color: var(--grid-blue);
+        box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.5),
+            inset 0 0 50px rgba(0, 255, 65, 0.05),
+            0 0 20px rgba(74, 144, 226, 0.2);
+    }
+
+    .scale-btn:hover {
+        background: var(--grid-blue);
+        border-color: var(--radar-green);
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        transform: none;
+    }
+
+    .result-item:hover {
+        background: rgba(10, 25, 41, 0.9);
+        border-left-color: var(--radar-green);
+    }
+
+    .orientation-btn:hover {
+        border-color: var(--grid-blue);
+        transform: translateY(-2px);
+    }
+
+    .avoidance-exit-btn:hover {
+        opacity: 1;
+        color: var(--warning-red);
+        background: rgba(255, 255, 255, 0.06);
+        transform: none;
+    }
+
+    .animation-panel:hover {
+        border-color: var(--grid-blue);
+        box-shadow:
+            0 12px 48px rgba(0, 0, 0, 0.5),
+            inset 0 0 50px rgba(0, 255, 65, 0.05),
+            0 0 20px rgba(74, 144, 226, 0.2);
+    }
+
+    .anim-play-btn:hover {
+        background: var(--grid-blue);
+        border-color: var(--radar-green);
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+        transform: none;
+    }
 }
 
 @media (max-width: 980px) {
