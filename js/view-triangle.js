@@ -4,17 +4,47 @@ import {
     setupCanvas, getCanvasLogical, bearingToCanvasOffset, drawArrowHead, drawTriangleGrid,
 } from './draw.js';
 
+/* ── Scale state (owned by this view) ── */
+
+let scaleIndex = null;
+let scaleManual = false;
+let lastDataVersion = -1;
 let triangleState = null;
 
-function scaleLabel(scaleIndex) {
-    return `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
+function bestFitScaleIndex(maxSpeed) {
+    for (let i = NICE_SCALES.length - 1; i >= 0; i--) {
+        if (maxSpeed * NICE_SCALES[i].value <= MAX_CHART_KNOTS) return i;
+    }
+    return 0;
 }
 
-export function renderScaleLabel(el, scaleIndex) {
-    if (scaleIndex !== null) {
-        el.textContent = scaleLabel(scaleIndex);
+function autoFitScale(model, results) {
+    if (model.dataVersion !== lastDataVersion) {
+        lastDataVersion = model.dataVersion;
+        scaleManual = false;
+        scaleIndex = null;
+    }
+    if (!scaleManual && results) {
+        const maxSpeed = Math.max(model.ownShip.speed, results.trueTarget.speed);
+        scaleIndex = bestFitScaleIndex(maxSpeed);
     }
 }
+
+export function stepTriangleScale(delta, model) {
+    const maxIndex = NICE_SCALES.length - 1;
+    const current = scaleIndex ?? 0;
+    scaleIndex = Math.max(0, Math.min(maxIndex, current + delta));
+    scaleManual = true;
+    model.notify();
+}
+
+export function renderScaleLabel(el) {
+    if (scaleIndex !== null) {
+        el.textContent = `\u00C9chelle : ${NICE_SCALES[scaleIndex].label}`;
+    }
+}
+
+/* ── Drawing helpers ── */
 
 function drawVector(ctx, x1, y1, x2, y2, color, { lineWidth = 4, dash, arrowSize = 12, label, labelPos = 'end' } = {}) {
     ctx.strokeStyle = color;
@@ -206,6 +236,8 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
     const maxRadius = Math.min(width, height) / 2 - 40;
     const rotation = model.orientationMode === 'head-up' ? model.ownShip.course : 0;
 
+    autoFitScale(model, results);
+
     ctx.fillStyle = COLORS.background;
     ctx.fillRect(0, 0, width, height);
 
@@ -217,7 +249,7 @@ export function renderTriangle(canvas, model, results, avoidanceResults) {
         return;
     }
 
-    const scaleFactor = NICE_SCALES[model.triangleScaleIndex]?.value ?? 1;
+    const scaleFactor = NICE_SCALES[scaleIndex]?.value ?? 1;
     const pixelsPerKnot = scaleFactor * maxRadius / MAX_CHART_KNOTS;
     const tt = { centerX, centerY, pixelsPerKnot, rotation };
 

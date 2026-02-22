@@ -1,10 +1,9 @@
 import { createModel } from './model.js';
 import { displayToTrue } from './bearings.js';
 import { computeTargetTracking, computeAvoidanceWithFallback } from './calculator.js';
-import { RADAR_RANGES } from './draw.js';
 import { renderForm } from './view-form.js';
-import { renderCanvas, resizeCanvas } from './view-canvas.js';
-import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, setupTriangleInteraction } from './view-triangle.js';
+import { renderCanvas, resizeCanvas, stepRadarRange, renderRadarRangeLabel } from './view-canvas.js';
+import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, stepTriangleScale, setupTriangleInteraction } from './view-triangle.js';
 import { resizeAnimationCanvas, updateAnimation, setAnimationControls, togglePlayback, seekTo } from './view-animation.js';
 import { applyFragment, syncFragmentToModel } from './fragment.js';
 
@@ -27,15 +26,13 @@ animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
 function render() {
     const results = computeTargetTracking(model.currentTarget, model.ownShip);
     const avoidanceResults = computeAvoidanceWithFallback(results, model.avoidance, model.currentTarget.distance2);
-    model.autoFitTriangleScale(results);
-    model.autoFitRadarRange(results);
 
     renderForm(model, results, avoidanceResults);
     renderCanvas(radarCanvas, model, results, avoidanceResults);
     renderTriangle(triangleCanvas, model, results, avoidanceResults);
     updateAnimation(animationCanvas, model, results, avoidanceResults);
-    renderScaleLabel(scaleLabelEl, model.triangleScaleIndex);
-    radarRangeLabelEl.textContent = RADAR_RANGES[model.radarRangeIndex].label;
+    renderScaleLabel(scaleLabelEl);
+    renderRadarRangeLabel(radarRangeLabelEl);
 }
 
 model.subscribe(render);
@@ -70,11 +67,11 @@ document.querySelectorAll('.target-btn').forEach((btn, i) => {
     btn.addEventListener('click', () => model.selectTarget(i));
 });
 
-document.getElementById('scaleUp').addEventListener('click', () => model.stepTriangleScale(1));
-document.getElementById('scaleDown').addEventListener('click', () => model.stepTriangleScale(-1));
+document.getElementById('scaleUp').addEventListener('click', () => stepTriangleScale(1, model));
+document.getElementById('scaleDown').addEventListener('click', () => stepTriangleScale(-1, model));
 
-document.getElementById('radarRangeUp').addEventListener('click', () => model.stepRadarRange(1));
-document.getElementById('radarRangeDown').addEventListener('click', () => model.stepRadarRange(-1));
+document.getElementById('radarRangeUp').addEventListener('click', () => stepRadarRange(1, model));
+document.getElementById('radarRangeDown').addEventListener('click', () => stepRadarRange(-1, model));
 
 bindInput('avoidanceDistance', (e) => model.setAvoidanceDistance(parseFloat(e.target.value) || 3));
 document.getElementById('avoidanceExit').addEventListener('click', () => model.exitAvoidance());
@@ -110,5 +107,5 @@ window.addEventListener('load', () => {
     resizeCanvas(radarCanvas);
     resizeTriangleCanvas(triangleCanvas);
     resizeAnimationCanvas(animationCanvas);
-    model.notify();
+    document.fonts.ready.then(() => model.notify());
 });

@@ -1,5 +1,38 @@
 import { DEG_TO_RAD, MIN_MOVEMENT_SPEED } from './constants.js';
-import { COLORS, RADAR_RANGES, setupCanvas, getCanvasLogical, drawArrowHead, drawPolarGrid } from './draw.js';
+import { COLORS, RADAR_RANGES, DEFAULT_RADAR_RANGE_INDEX, setupCanvas, getCanvasLogical, drawArrowHead, drawPolarGrid } from './draw.js';
+
+/* ── Radar range state (owned by this view) ── */
+
+let rangeIndex = DEFAULT_RADAR_RANGE_INDEX;
+let rangeManual = false;
+let lastDataVersion = -1;
+
+function autoFitRange(model, results) {
+    if (model.dataVersion !== lastDataVersion) {
+        lastDataVersion = model.dataVersion;
+        rangeManual = false;
+    }
+    if (rangeManual || !results) return;
+    const maxDist = Math.max(
+        Math.sqrt(results.pos1.x ** 2 + results.pos1.y ** 2),
+        Math.sqrt(results.pos2.x ** 2 + results.pos2.y ** 2)
+    );
+    const idx = RADAR_RANGES.findIndex(r => r.range >= maxDist);
+    rangeIndex = idx >= 0 ? idx : RADAR_RANGES.length - 1;
+}
+
+export function stepRadarRange(delta, model) {
+    const maxIndex = RADAR_RANGES.length - 1;
+    rangeIndex = Math.max(0, Math.min(maxIndex, rangeIndex + delta));
+    rangeManual = true;
+    model.notify();
+}
+
+export function renderRadarRangeLabel(el) {
+    el.textContent = RADAR_RANGES[rangeIndex].label;
+}
+
+/* ── Drawing helpers ── */
 
 function createViewTransform(centerX, centerY, scale, rotation) {
     const c = rotation * DEG_TO_RAD;
@@ -116,7 +149,10 @@ export function renderCanvas(canvas, model, results, avoidanceResults) {
     const centerX = width / 2;
     const centerY = height / 2;
     const maxRadius = Math.min(width, height) / 2 - 40;
-    const { range, rings } = RADAR_RANGES[model.radarRangeIndex];
+
+    autoFitRange(model, results);
+
+    const { range, rings } = RADAR_RANGES[rangeIndex];
     const scale = maxRadius / range;
     const rotation = model.orientationMode === 'head-up' ? model.ownShip.course : 0;
     const vt = createViewTransform(centerX, centerY, scale, rotation);
