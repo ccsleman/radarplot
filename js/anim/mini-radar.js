@@ -70,16 +70,18 @@ export function drawMiniRadar(ctx, config) {
 
     ctx.restore();
 
-    ctx.textAlign = 'center';
     ctx.fillStyle = COLORS.gridLabel;
     if (label) {
         ctx.font = 'bold 10px Share Tech Mono';
-        ctx.fillText(`${label} \u2013 ${MINI_RADAR_RANGE_NM} NM`, cx, cy - radius - 6);
-    } else {
-        ctx.font = '9px Share Tech Mono';
-        ctx.fillText(`${MINI_RADAR_RANGE_NM} NM`, cx, cy - radius - 6);
+        ctx.textAlign = 'center';
+        ctx.fillText(label, cx, cy - radius - 6);
     }
 
+    ctx.font = '9px Share Tech Mono';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${MINI_RADAR_RANGE_NM} NM`, cx + radius + 4, cy + 3);
+
+    ctx.textAlign = 'center';
     let labelY = cy + radius + 14;
     ctx.font = '10px Share Tech Mono';
     ctx.fillText(`Cap : ${Math.round(heading)}\u00B0`, cx, labelY);

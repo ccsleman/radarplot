@@ -100,6 +100,34 @@ h1 {
     transform: none;
 }
 
+.copy-link-btn.confirmed {
+    border-color: var(--radar-green);
+    box-shadow: 0 0 10px rgba(0, 255, 65, 0.4);
+}
+
+.copy-link-toast {
+    position: absolute;
+    top: 2.3rem;
+    right: 0;
+    padding: 0.3rem 0.8rem;
+    background: rgba(0, 255, 65, 0.15);
+    border: 1px solid var(--radar-green);
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--radar-green);
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.copy-link-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .copy-link-label {
     display: none;
 }
@@ -121,6 +149,10 @@ h1 {
 
     .copy-link-label {
         display: inline;
+    }
+
+    .copy-link-toast {
+        display: none;
     }
 }
 

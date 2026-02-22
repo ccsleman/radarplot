@@ -46,16 +46,10 @@ export function resizeAnimationCanvas(canvas) {
     setCanvasLogical(canvas, { width: cssWidth, height: cssHeight });
 }
 
-export function setAnimationControls(elements) {
-    controller.setControls(elements);
-}
-
-export function togglePlayback() {
-    controller.togglePlayback();
-}
-
-export function seekTo(fraction) {
-    controller.seekTo(fraction);
+export function setupAnimationInteraction({ playBtn, slider, timeLabel }) {
+    controller.setControls({ playBtn, slider, timeLabel });
+    playBtn.addEventListener('click', () => controller.togglePlayback());
+    slider.addEventListener('input', () => controller.seekTo(slider.value / 1000));
 }
 
 export function updateAnimation(canvas, model, results, avoidanceResults) {

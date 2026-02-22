@@ -4,7 +4,7 @@ import { computeTargetTracking, computeAvoidanceWithFallback } from './calculato
 import { renderForm } from './view-form.js';
 import { renderCanvas, resizeCanvas, stepRadarRange, renderRadarRangeLabel } from './view-canvas.js';
 import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, stepTriangleScale, setupTriangleInteraction } from './view-triangle.js';
-import { resizeAnimationCanvas, updateAnimation, setAnimationControls, togglePlayback, seekTo } from './view-animation.js';
+import { resizeAnimationCanvas, updateAnimation, setupAnimationInteraction } from './view-animation.js';
 import { applyFragment, syncFragmentToModel } from './fragment.js';
 
 const model = createModel();
@@ -15,13 +15,11 @@ const animationCanvas = document.getElementById('animationCanvas');
 const scaleLabelEl = document.getElementById('scaleLabel');
 const radarRangeLabelEl = document.getElementById('radarRangeLabel');
 
-const animPlayBtn = document.getElementById('animPlayBtn');
-const animSlider = document.getElementById('animSlider');
-const animTimeLabel = document.getElementById('animTimeLabel');
-
-setAnimationControls({ playBtn: animPlayBtn, slider: animSlider, timeLabel: animTimeLabel });
-animPlayBtn.addEventListener('click', togglePlayback);
-animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
+setupAnimationInteraction({
+    playBtn: document.getElementById('animPlayBtn'),
+    slider: document.getElementById('animSlider'),
+    timeLabel: document.getElementById('animTimeLabel'),
+});
 
 function render() {
     const results = computeTargetTracking(model.currentTarget, model.ownShip);
@@ -78,18 +76,40 @@ document.getElementById('avoidanceExit').addEventListener('click', () => model.e
 
 setupTriangleInteraction(triangleCanvas, model);
 
-/* ── Copy link ── */
+/* ── Share / Copy link ── */
 
-document.getElementById('copyLinkBtn').addEventListener('click', () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-        const icon = document.querySelector('.copy-link-icon');
-        const label = document.querySelector('.copy-link-label');
-        const origIcon = icon.textContent;
-        const origLabel = label.textContent;
-        icon.textContent = '\u2713';
-        label.textContent = 'Lien copi\u00e9 !';
-        setTimeout(() => { icon.textContent = origIcon; label.textContent = origLabel; }, 1500);
-    });
+const copyBtn = document.getElementById('copyLinkBtn');
+const copyIcon = document.querySelector('.copy-link-icon');
+const copyLabel = document.querySelector('.copy-link-label');
+const copyToast = document.getElementById('copyToast');
+const origIcon = copyIcon.textContent;
+const origLabel = copyLabel.textContent;
+let copyTimeout = null;
+
+const useShare = navigator.share && matchMedia('(pointer: coarse)').matches;
+if (useShare) copyBtn.title = 'Partager';
+
+function showCopyConfirmation() {
+    clearTimeout(copyTimeout);
+    copyIcon.textContent = '\u2713';
+    copyLabel.textContent = 'Lien copi\u00e9 !';
+    copyToast.classList.add('visible');
+    copyBtn.classList.add('confirmed');
+    copyTimeout = setTimeout(() => {
+        copyIcon.textContent = origIcon;
+        copyLabel.textContent = origLabel;
+        copyToast.classList.remove('visible');
+        copyBtn.classList.remove('confirmed');
+    }, 1500);
+}
+
+copyBtn.addEventListener('click', () => {
+    const url = window.location.href;
+    if (useShare) {
+        navigator.share({ title: document.title, url }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(url).then(showCopyConfirmation);
+    }
 });
 
 /* ── Resize / Init ── */

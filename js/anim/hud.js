@@ -79,12 +79,7 @@ export function drawNorthArrow(ctx, canvasW, canvasH) {
 export function drawLiveDistance(ctx, canvasH, distNM, avoidDistNM) {
     const x = 10;
     const lineH = 18;
-    const rows = avoidDistNM !== null ? 2 : 1;
-    const boxW = 130;
-    const y = canvasH - 10 - lineH * (rows - 1);
-
-    ctx.fillStyle = 'rgba(10, 25, 41, 0.8)';
-    ctx.fillRect(x - 6, y - 14, boxW + 12, lineH * rows + 4);
+    const y = canvasH - 10 - lineH * (avoidDistNM !== null ? 1 : 0);
 
     ctx.font = '12px Share Tech Mono';
     ctx.textAlign = 'left';
