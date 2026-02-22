@@ -87,7 +87,14 @@ const origLabel = copyLabel.textContent;
 let copyTimeout = null;
 
 const useShare = navigator.share && matchMedia('(pointer: coarse)').matches;
-if (useShare) copyBtn.title = 'Partager';
+if (useShare) {
+    copyBtn.title = 'Partager';
+    copyIcon.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M8 10V1.5M8 1.5L5 4.5M8 1.5l3 3"/>' +
+        '<path d="M3 7v6.5h10V7"/>' +
+        '</svg>';
+}
 
 function showCopyConfirmation() {
     clearTimeout(copyTimeout);

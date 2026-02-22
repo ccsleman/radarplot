@@ -92,8 +92,13 @@ h1 {
     border-radius: 6px;
     font-size: 1rem;
     line-height: 1;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.copy-link-icon svg {
+    display: block;
 }
 
 .copy-link-btn:active {
