@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertClose, assertCloseLoose } from './helpers.js';
 import {
     timeToMinutes,
     polarToCartesian,
@@ -8,19 +9,13 @@ import {
     closestPointOfApproach,
     tcpaFromObservation,
     trueMotion,
-    computeResults,
-    computeAvoidanceResults
+    formatAspect,
+    findManeuverPoint,
+    computeNewRelativeMotion,
+    computeTargetTracking,
+    computeAvoidanceResults,
+    computeAvoidanceWithFallback
 } from '../js/calculator.js';
-
-const EPSILON = 1e-9;
-
-function assertClose(actual, expected, message) {
-    assert.ok(Math.abs(actual - expected) < EPSILON, message || `expected ${expected}, got ${actual}`);
-}
-
-function assertCloseLoose(actual, expected, tolerance, message) {
-    assert.ok(Math.abs(actual - expected) < tolerance, message || `expected ~${expected}, got ${actual}`);
-}
 
 describe('timeToMinutes', () => {
     it('converts noon', () => {
@@ -216,17 +211,17 @@ describe('trueMotion', () => {
     });
 });
 
-describe('computeResults', () => {
+describe('computeTargetTracking', () => {
     it('returns null for invalid time interval', () => {
         const target = { bearing1: 45, distance1: 8, time1: '12:12', bearing2: 50, distance2: 6, time2: '12:00' };
         const ownShip = { course: 0, speed: 12 };
-        assert.strictEqual(computeResults(target, ownShip), null);
+        assert.strictEqual(computeTargetTracking(target, ownShip), null);
     });
 
     it('returns results for valid input', () => {
         const target = { bearing1: 45, distance1: 8, time1: '12:00', bearing2: 50, distance2: 6, time2: '12:12' };
         const ownShip = { course: 0, speed: 12 };
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         assert.ok(results !== null);
         assert.ok(results.relative.speed > 0);
         assert.ok(results.trueTarget.speed >= 0);
@@ -242,13 +237,13 @@ describe('computeResults', () => {
     it('returns null for empty time strings', () => {
         const target = { bearing1: 45, distance1: 8, time1: '', bearing2: 50, distance2: 6, time2: '12:12' };
         const ownShip = { course: 0, speed: 12 };
-        assert.strictEqual(computeResults(target, ownShip), null);
+        assert.strictEqual(computeTargetTracking(target, ownShip), null);
     });
 
     it('prediction extrapolates P2 by 1 hour of relative motion', () => {
         const target = { bearing1: 0, distance1: 10, time1: '12:00', bearing2: 0, distance2: 5, time2: '12:30' };
         const ownShip = { course: 0, speed: 0 };
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         const pos2 = polarToCartesian(0, 5);
         const deltaTime = 0.5;
         const expectedX = pos2.x + (results.relative.dx / deltaTime);
@@ -263,7 +258,7 @@ describe('computeAvoidanceResults timeToManeuverHours', () => {
     const ownShip = { course: 0, speed: 12 };
 
     it('returns timeToManeuverHours as a non-negative number', () => {
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         const avoid = computeAvoidanceResults(results, 90, 10, 3);
         assert.ok(avoid !== null);
         assert.ok(typeof avoid.timeToManeuverHours === 'number');
@@ -271,7 +266,7 @@ describe('computeAvoidanceResults timeToManeuverHours', () => {
     });
 
     it('is less than total TCPA', () => {
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         const avoid = computeAvoidanceResults(results, 90, 10, 3);
         assert.ok(avoid !== null);
         const totalTcpaHours = avoid.cpa.tcpaMinutes / 60;
@@ -280,7 +275,7 @@ describe('computeAvoidanceResults timeToManeuverHours', () => {
     });
 
     it('is consistent with maneuverPoint and relative velocity', () => {
-        const results = computeResults(target, ownShip);
+        const results = computeTargetTracking(target, ownShip);
         const avoid = computeAvoidanceResults(results, 90, 10, 3);
         assert.ok(avoid !== null);
 
@@ -297,5 +292,199 @@ describe('computeAvoidanceResults timeToManeuverHours', () => {
 
         assertCloseLoose(avoid.timeToManeuverHours, expectedTime, 0.01,
             `timeToManeuverHours (${avoid.timeToManeuverHours}) should match geometric derivation (${expectedTime})`);
+    });
+});
+
+describe('formatAspect', () => {
+    it('dead ahead returns rouge et vert', () => {
+        assert.ok(formatAspect(0).includes('rouge et vert'));
+        assert.ok(formatAspect(1).includes('rouge et vert'));
+    });
+
+    it('slightly starboard is avant tribord vert', () => {
+        const label = formatAspect(10);
+        assert.ok(label.includes("De l'avant"), label);
+        assert.ok(label.includes('Tribord'), label);
+        assert.ok(label.includes('vert'), label);
+    });
+
+    it('slightly port is avant babord rouge', () => {
+        const label = formatAspect(350);
+        assert.ok(label.includes("De l'avant"), label);
+        assert.ok(label.includes('bord'), label);
+        assert.ok(label.includes('rouge'), label);
+    });
+
+    it('beam starboard at 90', () => {
+        const label = formatAspect(90);
+        assert.ok(label.includes('Par le travers'), label);
+        assert.ok(label.includes('Tribord'), label);
+    });
+
+    it('beam port at 270', () => {
+        const label = formatAspect(270);
+        assert.ok(label.includes('Par le travers'), label);
+        assert.ok(label.includes('bord'), label);
+    });
+
+    it('abaft beam starboard at 135', () => {
+        const label = formatAspect(135);
+        assert.ok(label.includes("arri\u00e8re du travers"), label);
+        assert.ok(label.includes('blanc'), label);
+    });
+
+    it('abaft beam port at 225', () => {
+        const label = formatAspect(225);
+        assert.ok(label.includes("arri\u00e8re du travers"), label);
+        assert.ok(label.includes('blanc'), label);
+    });
+
+    it('dead astern', () => {
+        assert.ok(formatAspect(180).includes('blanc'));
+        assert.ok(formatAspect(179).includes("De l'arri\u00e8re"));
+    });
+
+    it('boundary at 22.5 starboard is avant du travers', () => {
+        const label = formatAspect(22.5);
+        assert.ok(label.includes("Sur l'avant du travers"), label);
+    });
+
+    it('boundary at 67.5 starboard is par le travers', () => {
+        const label = formatAspect(67.5);
+        assert.ok(label.includes('Par le travers'), label);
+    });
+
+    it('boundary at 112.5 starboard is arriere du travers', () => {
+        const label = formatAspect(112.5);
+        assert.ok(label.includes("arri\u00e8re du travers"), label);
+    });
+
+    it('boundary at 157.5 is de arriere', () => {
+        const label = formatAspect(157.5);
+        assert.ok(label.includes("De l'arri\u00e8re"), label);
+    });
+
+    it('handles negative input via normalization', () => {
+        const label = formatAspect(-10);
+        assert.ok(label.includes("De l'avant"), label);
+        assert.ok(label.includes('bord'), label);
+    });
+
+    it('handles input > 360 via normalization', () => {
+        const label = formatAspect(450);
+        assert.ok(label.includes('Par le travers'), label);
+    });
+});
+
+describe('findManeuverPoint', () => {
+    it('returns null when lenSq is zero', () => {
+        assert.strictEqual(findManeuverPoint({ x: 5, y: 5 }, 0, 0, 3), null);
+    });
+
+    it('finds intersection when trajectory crosses avoidance circle', () => {
+        const pos2 = { x: 0, y: 10 };
+        const result = findManeuverPoint(pos2, 0, -5, 3);
+        assert.ok(result !== null);
+        assert.ok(result.maneuverNeeded);
+        assert.ok(result.s >= 0);
+        const dist = Math.sqrt(result.point.x ** 2 + result.point.y ** 2);
+        assertCloseLoose(dist, 3, 0.01, 'maneuver point should be on avoidance circle');
+    });
+
+    it('sets maneuverNeeded false when trajectory does not cross circle', () => {
+        const pos2 = { x: 10, y: 10 };
+        const result = findManeuverPoint(pos2, 5, 0, 1);
+        assert.ok(result !== null);
+        assert.strictEqual(result.maneuverNeeded, false);
+    });
+
+    it('maneuver point lies on the line from pos2 along (dx, dy)', () => {
+        const pos2 = { x: 3, y: 8 };
+        const dx = -1;
+        const dy = -3;
+        const result = findManeuverPoint(pos2, dx, dy, 2);
+        assert.ok(result !== null);
+        assertCloseLoose(result.point.x, pos2.x + result.s * dx, 1e-9);
+        assertCloseLoose(result.point.y, pos2.y + result.s * dy, 1e-9);
+    });
+});
+
+describe('computeNewRelativeMotion', () => {
+    it('returns zero speed when new course matches true target motion', () => {
+        const result = computeNewRelativeMotion(0, 10, 0, 10);
+        assertCloseLoose(result.speed, 0, 1e-6);
+    });
+
+    it('returns expected relative for orthogonal courses', () => {
+        const result = computeNewRelativeMotion(0, 10, 90, 10);
+        assertCloseLoose(result.speed, Math.sqrt(200), 1e-6);
+    });
+
+    it('dx and dy are consistent with course and speed', () => {
+        const result = computeNewRelativeMotion(45, 12, 180, 8);
+        const backConverted = cartesianToPolar(result.dx, result.dy);
+        assertCloseLoose(backConverted.bearing, result.course, 1e-6);
+        assertCloseLoose(backConverted.distance, result.speed, 1e-6);
+    });
+});
+
+describe('computeAvoidanceWithFallback', () => {
+    const target = { bearing1: 45, distance1: 8, time1: '12:00', bearing2: 50, distance2: 6, time2: '12:12' };
+    const ownShip = { course: 0, speed: 12 };
+
+    it('returns null when avoidance is inactive', () => {
+        const results = computeTargetTracking(target, ownShip);
+        const avoidance = { active: false, course: 90, speed: 10, distance: 3 };
+        assert.strictEqual(computeAvoidanceWithFallback(results, avoidance, 6), null);
+    });
+
+    it('returns null when results are null', () => {
+        const avoidance = { active: true, course: 90, speed: 10, distance: 3 };
+        assert.strictEqual(computeAvoidanceWithFallback(null, avoidance, 6), null);
+    });
+
+    it('returns avoidance results when active with valid inputs', () => {
+        const results = computeTargetTracking(target, ownShip);
+        const avoidance = { active: true, course: 90, speed: 10, distance: 3 };
+        const avoid = computeAvoidanceWithFallback(results, avoidance, 6);
+        assert.ok(avoid !== null);
+        assert.ok(typeof avoid.cpa.distance === 'number');
+    });
+
+    it('clamps avoidance distance to target distance', () => {
+        const results = computeTargetTracking(target, ownShip);
+        const avoidance = { active: true, course: 90, speed: 10, distance: 100 };
+        const avoid = computeAvoidanceWithFallback(results, avoidance, 6);
+        assert.ok(avoid !== null);
+    });
+});
+
+describe('computeTargetTracking triangulation', () => {
+    it('computes exact values for target heading south due east', () => {
+        // Own ship: stationary at origin
+        // Target: at bearing 90 (due east), 10 NM, heading south at 10 kts
+        // After 30 min (0.5h), target moves 5 NM south
+        // P1: bearing 90, dist 10 => (10, 0)
+        // P2: bearing ~116.57, dist ~sqrt(125)=11.18 => (10, -5)
+        // Relative motion: dx=0, dy=-5 over 0.5h => course 180, speed 10 kts
+        // True target: own(0,0) + rel(0,-10) => course 180, speed 10 kts
+        const target = {
+            bearing1: 90, distance1: 10,
+            time1: '12:00',
+            bearing2: 116.565, distance2: Math.sqrt(125),
+            time2: '12:30'
+        };
+        const ownShip = { course: 0, speed: 0 };
+        const results = computeTargetTracking(target, ownShip);
+        assert.ok(results !== null);
+
+        assertCloseLoose(results.relative.course, 180, 0.1, 'relative course should be ~180');
+        assertCloseLoose(results.relative.speed, 10, 0.1, 'relative speed should be ~10 kts');
+        assertCloseLoose(results.trueTarget.course, 180, 0.1, 'true course should be ~180');
+        assertCloseLoose(results.trueTarget.speed, 10, 0.1, 'true speed should be ~10 kts');
+
+        // CPA: closest point on the line (10,0)->(10,-5) extended to origin
+        // The line is x=10, so CPA distance = 10 NM at (10, 0) = P1
+        assertCloseLoose(results.cpa.distance, 10, 0.1, 'CPA distance should be ~10 NM');
     });
 });

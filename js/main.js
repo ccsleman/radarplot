@@ -1,71 +1,40 @@
 import { createModel } from './model.js';
 import { displayToTrue } from './bearings.js';
-import { computeResults, computeAvoidanceResults } from './calculator.js';
+import { computeTargetTracking, computeAvoidanceWithFallback } from './calculator.js';
 import { renderForm } from './view-form.js';
-import { renderCanvas, resizeCanvas } from './view-canvas.js';
-import { renderTriangle, resizeTriangleCanvas, bestFitScaleIndex, scaleLabel } from './view-triangle.js';
-import { bearingToCanvasOffset as bearingToCanvasOffsetImport } from './draw.js';
-import { resizeAnimationCanvas, updateAnimation, setAnimationControls, togglePlayback, seekTo } from './view-animation.js';
+import { renderCanvas, resizeCanvas, stepRadarRange, renderRadarRangeLabel } from './view-canvas.js';
+import { renderTriangle, resizeTriangleCanvas, renderScaleLabel, stepTriangleScale, setupTriangleInteraction } from './view-triangle.js';
+import { resizeAnimationCanvas, updateAnimation, setupAnimationInteraction } from './view-animation.js';
+import { applyFragment, syncFragmentToModel } from './fragment.js';
 
 const model = createModel();
+applyFragment(model);
 const radarCanvas = document.getElementById('radarCanvas');
 const triangleCanvas = document.getElementById('triangleCanvas');
 const animationCanvas = document.getElementById('animationCanvas');
 const scaleLabelEl = document.getElementById('scaleLabel');
-const avoidanceOverlay = document.getElementById('avoidanceOverlay');
-const avoidanceDistInput = document.getElementById('avoidanceDistance');
+const radarRangeLabelEl = document.getElementById('radarRangeLabel');
 
-const animPlayBtn = document.getElementById('animPlayBtn');
-const animSlider = document.getElementById('animSlider');
-const animTimeLabel = document.getElementById('animTimeLabel');
-
-setAnimationControls({ playBtn: animPlayBtn, slider: animSlider, timeLabel: animTimeLabel });
-animPlayBtn.addEventListener('click', togglePlayback);
-animSlider.addEventListener('input', () => seekTo(animSlider.value / 1000));
+setupAnimationInteraction({
+    playBtn: document.getElementById('animPlayBtn'),
+    slider: document.getElementById('animSlider'),
+    timeLabel: document.getElementById('animTimeLabel'),
+});
 
 function render() {
-    const results = computeResults(model.currentTarget, model.ownShip);
-
-    let avoidanceResults = null;
-    if (model.avoidance.active && results) {
-        const clampedDist = Math.min(model.avoidance.distance, model.currentTarget.distance2);
-        avoidanceResults = computeAvoidanceResults(
-            results,
-            model.avoidance.course,
-            model.avoidance.speed,
-            clampedDist
-        );
-        if (!avoidanceResults) {
-            avoidanceResults = computeAvoidanceResults(
-                results,
-                model.avoidance.course,
-                model.avoidance.speed,
-                model.currentTarget.distance2
-            );
-        }
-    }
-
-    if (!model.triangleScaleManual && results) {
-        const maxSpeed = Math.max(model.ownShip.speed, results.trueTarget.speed);
-        model.triangleScaleIndex = bestFitScaleIndex(maxSpeed);
-    }
+    const results = computeTargetTracking(model.currentTarget, model.ownShip);
+    const avoidanceResults = computeAvoidanceWithFallback(results, model.avoidance, model.currentTarget.distance2);
 
     renderForm(model, results, avoidanceResults);
     renderCanvas(radarCanvas, model, results, avoidanceResults);
     renderTriangle(triangleCanvas, model, results, avoidanceResults);
     updateAnimation(animationCanvas, model, results, avoidanceResults);
-
-    if (model.triangleScaleIndex !== null) {
-        scaleLabelEl.textContent = scaleLabel(model.triangleScaleIndex);
-    }
-
-    avoidanceOverlay.style.display = model.avoidance.active ? 'flex' : 'none';
-    if (model.avoidance.active && document.activeElement !== avoidanceDistInput) {
-        avoidanceDistInput.value = model.avoidance.distance;
-    }
+    renderScaleLabel(scaleLabelEl);
+    renderRadarRangeLabel(radarRangeLabelEl);
 }
 
 model.subscribe(render);
+model.subscribe(() => syncFragmentToModel(model));
 
 function bindInput(id, handler) {
     document.getElementById(id).addEventListener('input', handler);
@@ -96,108 +65,59 @@ document.querySelectorAll('.target-btn').forEach((btn, i) => {
     btn.addEventListener('click', () => model.selectTarget(i));
 });
 
-document.getElementById('scaleUp').addEventListener('click', () => model.stepTriangleScale(1));
-document.getElementById('scaleDown').addEventListener('click', () => model.stepTriangleScale(-1));
+document.getElementById('scaleUp').addEventListener('click', () => stepTriangleScale(1, model));
+document.getElementById('scaleDown').addEventListener('click', () => stepTriangleScale(-1, model));
+
+document.getElementById('radarRangeUp').addEventListener('click', () => stepRadarRange(1, model));
+document.getElementById('radarRangeDown').addEventListener('click', () => stepRadarRange(-1, model));
 
 bindInput('avoidanceDistance', (e) => model.setAvoidanceDistance(parseFloat(e.target.value) || 3));
 document.getElementById('avoidanceExit').addEventListener('click', () => model.exitAvoidance());
 
-/* ── Drag interaction on triangle canvas ── */
+setupTriangleInteraction(triangleCanvas, model);
 
-const RAD_TO_DEG = 180 / Math.PI;
-const HIT_RADIUS = 20;
-let dragging = false;
+/* ── Share / Copy link ── */
 
-function canvasCoords(e) {
-    const rect = triangleCanvas.getBoundingClientRect();
-    if (e.touches) {
-        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+const copyBtn = document.getElementById('copyLinkBtn');
+const copyIcon = document.querySelector('.copy-link-icon');
+const copyLabel = document.querySelector('.copy-link-label');
+const copyToast = document.getElementById('copyToast');
+const origIcon = copyIcon.textContent;
+const origLabel = copyLabel.textContent;
+let copyTimeout = null;
+
+const useShare = navigator.share && matchMedia('(pointer: coarse)').matches;
+if (useShare) {
+    copyBtn.title = 'Partager';
+    copyIcon.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M8 10V1.5M8 1.5L5 4.5M8 1.5l3 3"/>' +
+        '<path d="M3 7v6.5h10V7"/>' +
+        '</svg>';
+}
+
+function showCopyConfirmation() {
+    clearTimeout(copyTimeout);
+    copyIcon.textContent = '\u2713';
+    copyLabel.textContent = 'Lien copi\u00e9 !';
+    copyToast.classList.add('visible');
+    copyBtn.classList.add('confirmed');
+    copyTimeout = setTimeout(() => {
+        copyIcon.textContent = origIcon;
+        copyLabel.textContent = origLabel;
+        copyToast.classList.remove('visible');
+        copyBtn.classList.remove('confirmed');
+    }, 1500);
+}
+
+copyBtn.addEventListener('click', () => {
+    const url = window.location.href;
+    if (useShare) {
+        navigator.share({ title: document.title, url }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(url).then(showCopyConfirmation);
     }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-}
-
-function canvasToCourseSpeed(mx, my) {
-    const st = triangleCanvas._triangleState;
-    if (!st) return null;
-    const relX = mx - st.centerX;
-    const relY = my - st.centerY;
-    const c = st.rotation * Math.PI / 180;
-    const cosC = Math.cos(c);
-    const sinC = Math.sin(c);
-    const nmX = (relX * cosC - relY * sinC) / st.pixelsPerKnot;
-    const nmY = (-relX * sinC - relY * cosC) / st.pixelsPerKnot;
-    const course = (Math.atan2(nmX, nmY) * RAD_TO_DEG + 360) % 360;
-    const speed = Math.max(0, Math.sqrt(nmX * nmX + nmY * nmY));
-    return { course, speed };
-}
-
-function isNearTip(mx, my) {
-    const st = triangleCanvas._triangleState;
-    if (!st) return false;
-    const dx = mx - st.tipX;
-    const dy = my - st.tipY;
-    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
-}
-
-function onPointerDown(e) {
-    const pos = canvasCoords(e);
-    const st = triangleCanvas._triangleState;
-    if (!st) return;
-
-    const checkTip = model.avoidance.active
-        ? isNearAvoidanceTip(pos.x, pos.y, st)
-        : isNearTip(pos.x, pos.y);
-    if (!checkTip) return;
-
-    dragging = true;
-    triangleCanvas.style.cursor = 'grabbing';
-    if (e.cancelable) e.preventDefault();
-
-    if (!model.avoidance.active) {
-        const cs = canvasToCourseSpeed(pos.x, pos.y);
-        if (cs) model.setAvoidance(cs.course, cs.speed);
-    }
-}
-
-function isNearAvoidanceTip(mx, my, st) {
-    const offset = bearingToCanvasOffsetImport(model.avoidance.course, model.avoidance.speed, st.pixelsPerKnot, st.rotation);
-    const tipX = st.centerX + offset.dx;
-    const tipY = st.centerY + offset.dy;
-    const dx = mx - tipX;
-    const dy = my - tipY;
-    return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS;
-}
-
-function onPointerMove(e) {
-    const pos = canvasCoords(e);
-    if (dragging) {
-        if (e.cancelable) e.preventDefault();
-        const cs = canvasToCourseSpeed(pos.x, pos.y);
-        if (cs) model.setAvoidance(cs.course, cs.speed);
-        return;
-    }
-    const st = triangleCanvas._triangleState;
-    if (!st) return;
-    const nearTip = model.avoidance.active
-        ? isNearAvoidanceTip(pos.x, pos.y, st)
-        : isNearTip(pos.x, pos.y);
-    triangleCanvas.style.cursor = nearTip ? 'grab' : 'crosshair';
-}
-
-function onPointerUp() {
-    if (dragging) {
-        dragging = false;
-        triangleCanvas.style.cursor = 'crosshair';
-    }
-}
-
-triangleCanvas.addEventListener('mousedown', onPointerDown);
-window.addEventListener('mousemove', onPointerMove);
-window.addEventListener('mouseup', onPointerUp);
-
-triangleCanvas.addEventListener('touchstart', onPointerDown, { passive: false });
-window.addEventListener('touchmove', onPointerMove, { passive: false });
-window.addEventListener('touchend', onPointerUp);
+});
 
 /* ── Resize / Init ── */
 
@@ -214,5 +134,5 @@ window.addEventListener('load', () => {
     resizeCanvas(radarCanvas);
     resizeTriangleCanvas(triangleCanvas);
     resizeAnimationCanvas(animationCanvas);
-    model.notify();
+    document.fonts.ready.then(() => model.notify());
 });
